@@ -114,9 +114,14 @@ namespace CHDReaderTest
                             case 2: // 2=HDCOMPRESSION_ZLIB_PLUS
                                 using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
                                 {
-                                    int bytes = st.Read(cache, 0, (int)blocksize);
-                                    if (bytes != (int)blocksize)
-                                        return hdErr.HDERR_READ_ERROR;
+                                    int bytesRead = 0;
+                                    while (bytesRead < (int)blocksize)
+                                    {
+                                        int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
+                                        if (bytes == 0)
+                                            return hdErr.HDERR_DECOMPRESSION_ERROR;
+                                        bytesRead += bytes;
+                                    }
                                 }
                                 break;
                             case 3: // 3=A/V Huff
@@ -124,10 +129,10 @@ namespace CHDReaderTest
                                     // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
 
                                     // These files are hitting where with compression = 3
-                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
-                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
-                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
-                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
+                                    // MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
+                                    // MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
+                                    // MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
+                                    // MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
 
                                     return hdErr.HDERR_UNSUPPORTED;
                                 }

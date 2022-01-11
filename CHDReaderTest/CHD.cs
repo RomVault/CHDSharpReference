@@ -57,17 +57,9 @@ namespace CHDReaderTest
     public enum hdErr
     {
         HDERR_NONE,
-        HDERR_OUT_OF_MEMORY,
-        HDERR_INVALID_FILE,
-        HDERR_INVALID_DATA,
-        HDERR_FILE_NOT_FOUND,
         HDERR_READ_ERROR,
         HDERR_DECOMPRESSION_ERROR,
-        HDERR_CANT_VERIFY,
-        HDERR_UNSUPPORTED,
-
-        HDERR_CANNOT_OPEN_FILE,
-        HDERR_CHDMAN_NOT_FOUND
+        HDERR_UNSUPPORTED
     };
 
 }

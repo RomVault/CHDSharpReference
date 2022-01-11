@@ -91,9 +91,14 @@ namespace CHDReaderTest
 
             using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
             {
-                int bytes = st.Read(cache, 0, (int)blocksize);
-                if (bytes != (int)blocksize)
-                    return hdErr.HDERR_READ_ERROR;
+                int bytesRead = 0;
+                while (bytesRead < (int)blocksize)
+                {
+                    int bytes = st.Read(cache, bytesRead, (int)blocksize-bytesRead);
+                    if (bytes == 0)
+                        return hdErr.HDERR_DECOMPRESSION_ERROR;
+                    bytesRead += bytes;
+                }
                 return hdErr.HDERR_NONE;
             }
         }
