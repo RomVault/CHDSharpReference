@@ -27,6 +27,9 @@ namespace CHDReaderTest
                     case 3:
                         valid = CHDV3.go(s);
                         break;
+                    case 4:
+                        valid = CHDV4.go(s);
+                        break;
                     default:
                         Console.WriteLine($"Unknown version {version}");
                         return;

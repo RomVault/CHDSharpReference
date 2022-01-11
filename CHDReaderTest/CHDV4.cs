@@ -7,7 +7,7 @@ using System.Text;
 
 namespace CHDReaderTest
 {
-    internal static class CHDV3
+    internal static class CHDV4
     {
 
         internal class mapentry
@@ -33,11 +33,10 @@ namespace CHDReaderTest
             ulong totalbytes = br.ReadUInt64BE();  // total byte size of the image
             ulong metaoffset = br.ReadUInt64BE();
 
-            byte[] md5 = br.ReadBytes(16);
-            byte[] parentmd5 = br.ReadBytes(16);
             uint blocksize = br.ReadUInt32BE();    // length of a CHD Block
             byte[] sha1 = br.ReadBytes(20);
             byte[] parentsha1 = br.ReadBytes(20);
+            byte[] rawsha1 = br.ReadBytes(20);
 
             if (compression != 1 && compression != 2)
             {
@@ -61,7 +60,6 @@ namespace CHDReaderTest
             }
 
 
-            using MD5 md5Check = MD5.Create();
             using SHA1 sha1Check = SHA1.Create();
 
 
@@ -83,8 +81,7 @@ namespace CHDReaderTest
 
                 int sizenext = sizetoGo > (ulong)blocksize ? (int)blocksize : (int)sizetoGo;
 
-                md5Check.TransformBlock(buffer, 0, sizenext, null, 0);
-                sha1Check.TransformBlock(buffer, 0, sizenext, null, 0);
+               sha1Check.TransformBlock(buffer, 0, sizenext, null, 0);
 
                 /* prepare for the next block */
                 block++;
@@ -94,13 +91,8 @@ namespace CHDReaderTest
             Console.WriteLine("");
 
             byte[] tmp = new byte[0];
-            md5Check.TransformFinalBlock(tmp, 0, 0);
             sha1Check.TransformFinalBlock(tmp, 0, 0);
-            if (!Util.ByteArrCompare(md5, md5Check.Hash))
-            {
-                return false;
-            }
-            if (!Util.ByteArrCompare(sha1, sha1Check.Hash))
+            if (!Util.ByteArrCompare(rawsha1, sha1Check.Hash))
             {
                 return false;
             }
@@ -119,7 +111,6 @@ namespace CHDReaderTest
             {
                 case mapFlags.MAP_ENTRY_TYPE_COMPRESSED:
                     {
-                        // this works for type 1 & 2 compression
                         file.Seek((long)mapEntry.offset, SeekOrigin.Begin);
                         using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
                         {
