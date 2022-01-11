@@ -7,6 +7,7 @@ namespace CHDReaderTest
     {
         public static void TestCHD(string filename)
         {
+            Console.WriteLine("");
             Console.WriteLine($"Testing :{filename}");
             using (Stream s = File.Open(filename, FileMode.Open, FileAccess.Read))
             {
@@ -15,7 +16,7 @@ namespace CHDReaderTest
 
                 Console.WriteLine($@"CHD Version {version}");
 
-                bool valid = false;
+                bool valid = true;
                 switch (version)
                 {
                     case 1:
@@ -29,6 +30,9 @@ namespace CHDReaderTest
                         break;
                     case 4:
                         valid = CHDV4.go(s);
+                        break;
+                    case 5:
+                        valid = CHDV5.go(s);
                         break;
                     default:
                         Console.WriteLine($"Unknown version {version}");

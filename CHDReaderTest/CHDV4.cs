@@ -88,6 +88,25 @@ namespace CHDReaderTest
 
             // there is also in the header the sha1 value which I believe also includes the hash of the meta data
             // so the meta data now needs to be read in and hashed.
+            while(metaoffset!=0)
+            {
+                file.Seek((long)metaoffset,SeekOrigin.Begin);
+                uint metaTag = br.ReadUInt32BE();
+                uint metaLength = br.ReadUInt32BE();
+                ulong metaNext = br.ReadUInt64BE();
+                uint metaFlags = metaLength >> 24;
+                metaLength &= 0x00ffffff;
+
+                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
+
+                byte[] metaData=new byte[metaLength];
+                file.Read(metaData, 0, metaData.Length);
+
+                string data= Encoding.ASCII.GetString(metaData);
+                Console.WriteLine($"Data: {data}");
+
+                metaoffset = metaNext;
+            }
 
             return true;
         }

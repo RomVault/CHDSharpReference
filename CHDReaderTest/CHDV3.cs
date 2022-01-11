@@ -92,8 +92,26 @@ namespace CHDReaderTest
                 return false;
             }
 
-            // There is meta data on the end of the file
-            // need to write something that read it.
+            // Read the meta data.
+            while (metaoffset != 0)
+            {
+                file.Seek((long)metaoffset, SeekOrigin.Begin);
+                uint metaTag = br.ReadUInt32BE();
+                uint metaLength = br.ReadUInt32BE();
+                ulong metaNext = br.ReadUInt64BE();
+                uint metaFlags = metaLength >> 24;
+                metaLength &= 0x00ffffff;
+
+                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
+
+                byte[] metaData = new byte[metaLength];
+                file.Read(metaData, 0, metaData.Length);
+
+                string data = Encoding.ASCII.GetString(metaData);
+                Console.WriteLine($"Data: {data}");
+
+                metaoffset = metaNext;
+            }
 
             return true;
         }
