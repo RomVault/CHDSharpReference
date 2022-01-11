@@ -92,7 +92,8 @@ namespace CHDReaderTest
                 return false;
             }
 
-            // now check the meta data??
+            // There is meta data on the end of the file
+            // need to write something that read it.
 
             return true;
         }
@@ -126,6 +127,7 @@ namespace CHDReaderTest
                                 break;
                             case 3: // 3=A/V Huff
                                 {
+                                    // This needs to be converted from C++ to C#
                                     // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
 
                                     // These files are hitting where with compression = 3

@@ -79,12 +79,15 @@ namespace CHDReaderTest
 
             byte[] tmp = new byte[0];
             sha1Check.TransformFinalBlock(tmp, 0, 0);
+
+            // here it is now using the rawsha1 value from the header to validate the raw binary data.
             if (!Util.ByteArrCompare(rawsha1, sha1Check.Hash))
             {
                 return false;
             }
 
-            // now check the meta data??
+            // there is also in the header the sha1 value which I believe also includes the hash of the meta data
+            // so the meta data now needs to be read in and hashed.
 
             return true;
         }
@@ -118,6 +121,7 @@ namespace CHDReaderTest
                                 break;
                             case 3: // 3=A/V Huff
                                 {
+                                    // This needs to be converted from C++ to C#
                                     // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
                                     return hdErr.HDERR_UNSUPPORTED;
                                 }

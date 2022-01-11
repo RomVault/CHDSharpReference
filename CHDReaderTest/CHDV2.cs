@@ -24,7 +24,7 @@ namespace CHDReaderTest
 
             uint flags = br.ReadUInt32BE();
             uint compression = br.ReadUInt32BE();
-            uint blocksize = br.ReadUInt32BE();
+            uint blocksize = br.ReadUInt32BE(); // this is now unused
             uint totalblocks = br.ReadUInt32BE();
             uint cylinders = br.ReadUInt32BE();
             uint heads = br.ReadUInt32BE();
