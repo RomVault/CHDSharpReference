@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31911.260
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CHDReaderTest", "CHDReaderTest\CHDReaderTest.csproj", "{7FAFDD41-9D5A-49EC-A8A6-D88998B247D6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7FAFDD41-9D5A-49EC-A8A6-D88998B247D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7FAFDD41-9D5A-49EC-A8A6-D88998B247D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7FAFDD41-9D5A-49EC-A8A6-D88998B247D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7FAFDD41-9D5A-49EC-A8A6-D88998B247D6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0A3F3828-0D9D-4066-AD5F-880D8762E8F1}
+	EndGlobalSection
+EndGlobal
