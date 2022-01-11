@@ -25,16 +25,17 @@ namespace CHDReaderTest
             uint flags = br.ReadUInt32BE();
             uint compression = br.ReadUInt32BE();
             uint blocksize = br.ReadUInt32BE();
-            uint totalblocks = br.ReadUInt32BE(); // total number of CHD Blocks
+            uint totalblocks = br.ReadUInt32BE();
             uint cylinders = br.ReadUInt32BE();
             uint heads = br.ReadUInt32BE();
             uint sectors = br.ReadUInt32BE();
             byte[] md5 = br.ReadBytes(16);
             byte[] parentmd5 = br.ReadBytes(16);
-            blocksize = br.ReadUInt32BE();
+            blocksize = br.ReadUInt32BE(); // blocksize added to header in V2
 
             const int HARD_DISK_SECTOR_SIZE = 512;
             ulong totalbytes = cylinders * heads * sectors * HARD_DISK_SECTOR_SIZE;
+            // blocksize = blocksize * HARD_DISK_SECTOR_SIZE; 
 
             mapentry[] map = new mapentry[totalblocks];
 
@@ -66,7 +67,6 @@ namespace CHDReaderTest
                     return false;
 
                 md5Check.TransformBlock(buffer, 0, (int)blocksize, null, 0);
-
             }
             Console.WriteLine("");
 
@@ -82,7 +82,6 @@ namespace CHDReaderTest
 
         private static hdErr readBlock(Stream file, mapentry map, uint blocksize, ref byte[] cache)
         {
-
             file.Seek((long)map.offset, SeekOrigin.Begin);
 
             if (map.flags == mapFlags.MAP_ENTRY_TYPE_UNCOMPRESSED)
@@ -100,7 +99,6 @@ namespace CHDReaderTest
                     return hdErr.HDERR_READ_ERROR;
                 return hdErr.HDERR_NONE;
             }
-
         }
     }
 }

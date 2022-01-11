@@ -9,7 +9,6 @@ namespace CHDReaderTest
 {
     internal static class CHDV3
     {
-
         internal class mapentry
         {
             public ulong offset;
@@ -18,15 +17,11 @@ namespace CHDReaderTest
             public mapFlags flags;
         }
 
-
         public static bool go(Stream file)
         {
             using BinaryReader br = new BinaryReader(file, Encoding.UTF8, true);
             uint flags = br.ReadUInt32BE();
 
-            // 1=HDCOMPRESSION_ZLIB
-            // 2=HDCOMPRESSION_ZLIB_PLUS
-            // 3=A/V Huff
             uint compression = br.ReadUInt32BE();
             uint totalblocks = br.ReadUInt32BE(); // total number of CHD Blocks
 
@@ -38,12 +33,6 @@ namespace CHDReaderTest
             uint blocksize = br.ReadUInt32BE();    // length of a CHD Block
             byte[] sha1 = br.ReadBytes(20);
             byte[] parentsha1 = br.ReadBytes(20);
-
-            if (compression != 1 && compression != 2)
-            {
-                Console.WriteLine($"Unknown Compression type {compression}");
-                return false;
-            }
 
             mapentry[] map = new mapentry[totalblocks];
 
@@ -60,10 +49,8 @@ namespace CHDReaderTest
                 map[i] = me;
             }
 
-
             using MD5 md5Check = MD5.Create();
             using SHA1 sha1Check = SHA1.Create();
-
 
             byte[] buffer = new byte[blocksize];
 
@@ -77,11 +64,11 @@ namespace CHDReaderTest
 
 
                 /* read the block into the cache */
-                hdErr err = readBlock(file, block, map, (uint)blocksize, ref buffer);
+                hdErr err = readBlock(file, compression, block, map, blocksize, ref buffer);
                 if (err != hdErr.HDERR_NONE)
                     return false;
 
-                int sizenext = sizetoGo > (ulong)blocksize ? (int)blocksize : (int)sizetoGo;
+                int sizenext = sizetoGo > blocksize ? (int)blocksize : (int)sizetoGo;
 
                 md5Check.TransformBlock(buffer, 0, sizenext, null, 0);
                 sha1Check.TransformBlock(buffer, 0, sizenext, null, 0);
@@ -110,7 +97,7 @@ namespace CHDReaderTest
             return true;
         }
 
-        private static hdErr readBlock(Stream file, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
+        private static hdErr readBlock(Stream file, uint compression, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
         {
             bool checkCrc = true;
             mapentry mapEntry = map[mapindex];
@@ -119,13 +106,35 @@ namespace CHDReaderTest
             {
                 case mapFlags.MAP_ENTRY_TYPE_COMPRESSED:
                     {
-                        // this works for type 1 & 2 compression
                         file.Seek((long)mapEntry.offset, SeekOrigin.Begin);
-                        using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
+
+                        switch (compression)
                         {
-                            int bytes = st.Read(cache, 0, (int)blocksize);
-                            if (bytes != (int)blocksize)
-                                return hdErr.HDERR_READ_ERROR;
+                            case 1: // 1=HDCOMPRESSION_ZLIB
+                            case 2: // 2=HDCOMPRESSION_ZLIB_PLUS
+                                using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
+                                {
+                                    int bytes = st.Read(cache, 0, (int)blocksize);
+                                    if (bytes != (int)blocksize)
+                                        return hdErr.HDERR_READ_ERROR;
+                                }
+                                break;
+                            case 3: // 3=A/V Huff
+                                {
+                                    // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
+
+                                    // These files are hitting where with compression = 3
+                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
+                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
+                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
+                                    // Testing :\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
+
+                                    return hdErr.HDERR_UNSUPPORTED;
+                                }
+                            default:
+                                {
+                                    return hdErr.HDERR_UNSUPPORTED;
+                                }
                         }
                         break;
                     }
@@ -158,7 +167,7 @@ namespace CHDReaderTest
 
                 case mapFlags.MAP_ENTRY_TYPE_SELF_HUNK:
                     {
-                        hdErr ret = readBlock(file, (int)mapEntry.offset, map, blocksize, ref cache);
+                        hdErr ret = readBlock(file, compression, (int)mapEntry.offset, map, blocksize, ref cache);
                         if (ret != hdErr.HDERR_NONE)
                             return ret;
                         // check CRC in the read_block_into_cache call

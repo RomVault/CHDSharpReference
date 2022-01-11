@@ -22,7 +22,7 @@ namespace CHDReaderTest
             uint flags = br.ReadUInt32BE();
             uint compression = br.ReadUInt32BE();
             uint blocksize = br.ReadUInt32BE();
-            uint totalblocks = br.ReadUInt32BE(); // total number of CHD Blocks
+            uint totalblocks = br.ReadUInt32BE();
             uint cylinders = br.ReadUInt32BE();
             uint heads = br.ReadUInt32BE();
             uint sectors = br.ReadUInt32BE();
@@ -51,7 +51,6 @@ namespace CHDReaderTest
             }
 
             using MD5 md5Check = MD5.Create();
-
             byte[] buffer = new byte[blocksize];
             for (int block = 0; block < totalblocks; block++)
             {
@@ -65,7 +64,6 @@ namespace CHDReaderTest
                     return false;
 
                 md5Check?.TransformBlock(buffer, 0, (int)blocksize, null, 0);
-
             }
             Console.WriteLine("");
 
@@ -81,7 +79,6 @@ namespace CHDReaderTest
 
         private static hdErr readBlock(Stream file, mapentry map, uint blocksize, ref byte[] cache)
         {
-
             file.Seek((long)map.offset, SeekOrigin.Begin);
 
             if (map.flags == mapFlags.MAP_ENTRY_TYPE_UNCOMPRESSED)
@@ -99,7 +96,6 @@ namespace CHDReaderTest
                     return hdErr.HDERR_READ_ERROR;
                 return hdErr.HDERR_NONE;
             }
-
         }
     }
 }
