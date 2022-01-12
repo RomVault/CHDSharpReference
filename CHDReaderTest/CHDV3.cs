@@ -106,7 +106,10 @@ namespace CHDReaderTest
                 file.Read(metaData, 0, metaData.Length);
 
                 Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
-                Console.WriteLine($"Data: {Encoding.ASCII.GetString(metaData)}");
+                if (Util.isAscii(metaData))
+                    Console.WriteLine($"Data: {Encoding.ASCII.GetString(metaData)}");
+                else
+                    Console.WriteLine($"Data: Binary Data Length {metaData.Length}");
 
                 metaoffset = metaNext;
             }

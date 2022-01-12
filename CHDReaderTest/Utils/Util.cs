@@ -22,5 +22,15 @@
             }
             return true;
         }
+
+        internal static bool isAscii(byte[] bytes)
+        {
+            foreach (byte b in bytes)
+            {
+                if (b != 0 && b < 32)
+                    return false;
+            }
+            return true;
+        }
     }
 }
