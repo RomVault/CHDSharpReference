@@ -102,13 +102,11 @@ namespace CHDReaderTest
                 uint metaFlags = metaLength >> 24;
                 metaLength &= 0x00ffffff;
 
-                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
-
                 byte[] metaData = new byte[metaLength];
                 file.Read(metaData, 0, metaData.Length);
 
-                string data = Encoding.ASCII.GetString(metaData);
-                Console.WriteLine($"Data: {data}");
+                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
+                Console.WriteLine($"Data: {Encoding.ASCII.GetString(metaData)}");
 
                 metaoffset = metaNext;
             }

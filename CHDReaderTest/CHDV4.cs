@@ -1,5 +1,6 @@
 ﻿using CHDReaderTest.Utils;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
@@ -16,6 +17,8 @@ namespace CHDReaderTest
             public ulong length;
             public mapFlags flags;
         }
+
+        public static uint CHD_MDFLAGS_CHECKSUM = 0x01;        // indicates data is checksummed
 
         public static bool go(Stream file)
         {
@@ -86,29 +89,85 @@ namespace CHDReaderTest
                 return false;
             }
 
-            // there is also in the header the sha1 value which I believe also includes the hash of the meta data
-            // so the meta data now needs to be read in and hashed.
-            while(metaoffset!=0)
+            // List<byte[]>metaHashes contains the byte data that is hashed below to validate the meta data
+            // each metaHash is 24 bytes:
+            // 0-3  : is the byte data for the metaTag
+            // 4-23 : is the SHA1 of the metaData
+
+            List<byte[]> metaHashes = new List<byte[]>();
+
+            // loop over the metadata, until metaoffset=0
+            while (metaoffset != 0)
             {
-                file.Seek((long)metaoffset,SeekOrigin.Begin);
+                file.Seek((long)metaoffset, SeekOrigin.Begin);
                 uint metaTag = br.ReadUInt32BE();
                 uint metaLength = br.ReadUInt32BE();
                 ulong metaNext = br.ReadUInt64BE();
                 uint metaFlags = metaLength >> 24;
                 metaLength &= 0x00ffffff;
-
-                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
-
-                byte[] metaData=new byte[metaLength];
+                
+                byte[] metaData = new byte[metaLength];
                 file.Read(metaData, 0, metaData.Length);
 
-                string data= Encoding.ASCII.GetString(metaData);
-                Console.WriteLine($"Data: {data}");
+                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
+                Console.WriteLine($"Data: {Encoding.ASCII.GetString(metaData)}");
 
+                // take the 4 byte metaTag, and the metaData
+                // SHA1 the metaData to 20 byte SHA1
+                // metadata_hash return these 24 bytes in a byte[24]
+                if ((metaFlags & CHD_MDFLAGS_CHECKSUM) != 0)
+                    metaHashes.Add(metadata_hash(metaTag, metaData));
+
+                // set location of next meta data entry in the CHD (set to 0 if finished.)
                 metaoffset = metaNext;
             }
 
+            // binary sort the metaHashes
+            metaHashes.Sort(metadata_hash_compare);
+
+            // build the final SHA1
+            // starting with the 20 byte rawsha1 from the main CHD data
+            // then add the 24 byte for each meta data entry
+            using SHA1 sha1Total = SHA1.Create();
+            sha1Total.TransformBlock(rawsha1, 0, rawsha1.Length, null, 0);
+
+            for (int i = 0; i < metaHashes.Count; i++)
+                sha1Total.TransformBlock(metaHashes[i], 0, metaHashes[i].Length, null, 0);
+
+            sha1Total.TransformFinalBlock(tmp, 0, 0);
+
+            // compare the calculated metaData + rawData SHA1 with sha1 from the CHD header
+            if (!Util.ByteArrCompare(sha1, sha1Total.Hash))
+            {
+                return false;
+            }
+
             return true;
+        }
+
+        private static byte[] metadata_hash(uint metaTag, byte[] metaData)
+        {
+            byte[] metaHash = new byte[24];
+            metaHash[0] = (byte)((metaTag >> 24) & 0xff);
+            metaHash[1] = (byte)((metaTag >> 16) & 0xff);
+            metaHash[2] = (byte)((metaTag >> 8) & 0xff);
+            metaHash[3] = (byte)((metaTag >> 0) & 0xff);
+            byte[] metaDataHasj = SHA1.HashData(metaData);
+            for (int i = 0; i < 20; i++)
+                metaHash[4 + i] = metaDataHasj[i];
+
+            return metaHash;
+        }
+
+        private static int metadata_hash_compare(byte[] x, byte[] y)
+        {
+            for (int i = 0; i < x.Length; i++)
+            {
+                int v = x[i].CompareTo(y[i]);
+                if (v != 0)
+                    return v;
+            }
+            return 0;
         }
 
         private static hdErr readBlock(Stream file, uint compression, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
