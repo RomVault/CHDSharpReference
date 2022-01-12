@@ -2,7 +2,7 @@
 {
     internal static class Util
     {
-        internal static bool ByteArrCompare(byte[] b0, byte[] b1)
+        internal static bool ByteArrEquals(byte[] b0, byte[] b1)
         {
             if ((b0 == null) || (b1 == null))
             {
@@ -21,6 +21,18 @@
                 }
             }
             return true;
+        }
+
+
+        internal static int ByteArrCompare(byte[] x, byte[] y)
+        {
+            for (int i = 0; i < x.Length; i++)
+            {
+                int v = x[i].CompareTo(y[i]);
+                if (v != 0)
+                    return v;
+            }
+            return 0;
         }
 
         internal static bool isAscii(byte[] bytes)

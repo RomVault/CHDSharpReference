@@ -72,12 +72,8 @@ namespace CHDReaderTest
 
             byte[] tmp = new byte[0];
             md5Check.TransformFinalBlock(tmp, 0, 0);
-            if (!Util.ByteArrCompare(md5, md5Check.Hash))
-            {
-                return false;
-            }
 
-            return true;
+            return Util.ByteArrEquals(md5, md5Check.Hash);
         }
 
         private static hdErr readBlock(Stream file, mapentry map, uint blocksize, ref byte[] cache)

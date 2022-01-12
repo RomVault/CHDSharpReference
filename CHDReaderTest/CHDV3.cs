@@ -83,11 +83,11 @@ namespace CHDReaderTest
             byte[] tmp = new byte[0];
             md5Check.TransformFinalBlock(tmp, 0, 0);
             sha1Check.TransformFinalBlock(tmp, 0, 0);
-            if (!Util.ByteArrCompare(md5, md5Check.Hash))
+            if (!Util.ByteArrEquals(md5, md5Check.Hash))
             {
                 return false;
             }
-            if (!Util.ByteArrCompare(sha1, sha1Check.Hash))
+            if (!Util.ByteArrEquals(sha1, sha1Check.Hash))
             {
                 return false;
             }

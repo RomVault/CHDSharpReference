@@ -84,7 +84,7 @@ namespace CHDReaderTest
             sha1Check.TransformFinalBlock(tmp, 0, 0);
 
             // here it is now using the rawsha1 value from the header to validate the raw binary data.
-            if (!Util.ByteArrCompare(rawsha1, sha1Check.Hash))
+            if (!Util.ByteArrEquals(rawsha1, sha1Check.Hash))
             {
                 return false;
             }
@@ -126,7 +126,7 @@ namespace CHDReaderTest
             }
 
             // binary sort the metaHashes
-            metaHashes.Sort(metadata_hash_compare);
+            metaHashes.Sort(Util.ByteArrCompare);
 
             // build the final SHA1
             // starting with the 20 byte rawsha1 from the main CHD data
@@ -140,39 +140,29 @@ namespace CHDReaderTest
             sha1Total.TransformFinalBlock(tmp, 0, 0);
 
             // compare the calculated metaData + rawData SHA1 with sha1 from the CHD header
-            if (!Util.ByteArrCompare(sha1, sha1Total.Hash))
-            {
-                return false;
-            }
-
-            return true;
+            return Util.ByteArrEquals(sha1, sha1Total.Hash);
         }
 
 
         private static byte[] metadata_hash(uint metaTag, byte[] metaData)
         {
+            // make 24 byte metadata hash
+            // 0-3  :  metaTag
+            // 4-23 :  sha1 of the metaData
+
             byte[] metaHash = new byte[24];
             metaHash[0] = (byte)((metaTag >> 24) & 0xff);
             metaHash[1] = (byte)((metaTag >> 16) & 0xff);
             metaHash[2] = (byte)((metaTag >> 8) & 0xff);
             metaHash[3] = (byte)((metaTag >> 0) & 0xff);
             byte[] metaDataHasj = SHA1.HashData(metaData);
+            
             for (int i = 0; i < 20; i++)
                 metaHash[4 + i] = metaDataHasj[i];
 
             return metaHash;
         }
 
-        private static int metadata_hash_compare(byte[] x, byte[] y)
-        {
-            for (int i = 0; i < x.Length; i++)
-            {
-                int v = x[i].CompareTo(y[i]);
-                if (v != 0)
-                    return v;
-            }
-            return 0;
-        }
 
         private static hdErr readBlock(Stream file, uint compression, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
         {
