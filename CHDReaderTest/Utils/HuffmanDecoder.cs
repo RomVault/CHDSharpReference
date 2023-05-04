@@ -14,9 +14,9 @@
 
     internal class node_t
     {
-        internal node_t parent;         /* pointer to parent node */
-        internal uint count;            /* number of hits on this node */
-        internal uint weight;           /* assigned weight of this node */
+        //internal node_t parent;       /* pointer to parent node */
+        //internal uint count;          /* number of hits on this node */
+        //internal uint weight;         /* assigned weight of this node */
         internal uint bits;             /* bits used to encode the node */
         internal byte numbits;          /* number of bits needed for this node */
     };

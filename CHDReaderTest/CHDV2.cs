@@ -60,8 +60,8 @@ namespace CHDReaderTest
                 if ((block % 1000) == 0)
                     Console.Write($"Verifying, {(block * 100 / totalblocks):N1}% complete...\r");
 
-                hdErr err = readBlock(file, map[block], blocksize, ref buffer);
-                if (err != hdErr.HDERR_NONE)
+                chd_error err = readBlock(file, map[block], blocksize, ref buffer);
+                if (err != chd_error.CHDERR_NONE)
                     return false;
 
                 md5Check.TransformBlock(buffer, 0, (int)blocksize, null, 0);
@@ -74,7 +74,7 @@ namespace CHDReaderTest
             return Util.ByteArrEquals(md5, md5Check.Hash);
         }
 
-        private static hdErr readBlock(Stream file, mapentry map, uint blocksize, ref byte[] cache)
+        private static chd_error readBlock(Stream file, mapentry map, uint blocksize, ref byte[] cache)
         {
             file.Seek((long)map.offset, SeekOrigin.Begin);
 
@@ -82,8 +82,8 @@ namespace CHDReaderTest
             {
                 int bytes = file.Read(cache, 0, (int)blocksize);
                 if (bytes != (int)blocksize)
-                    return hdErr.HDERR_READ_ERROR;
-                return hdErr.HDERR_NONE;
+                    return chd_error.CHDERR_READ_ERROR;
+                return chd_error.CHDERR_NONE;
             }
 
             using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
@@ -93,10 +93,10 @@ namespace CHDReaderTest
                 {
                     int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
                     if (bytes == 0)
-                        return hdErr.HDERR_DECOMPRESSION_ERROR;
+                        return chd_error.CHDERR_DECOMPRESSION_ERROR;
                     bytesRead += bytes;
                 }
-                return hdErr.HDERR_NONE;
+                return chd_error.CHDERR_NONE;
             }
         }
     }

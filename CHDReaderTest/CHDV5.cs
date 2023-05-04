@@ -3,6 +3,7 @@ using Compress.Support.Compression.LZMA;
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace CHDReaderTest
@@ -24,214 +25,119 @@ namespace CHDReaderTest
             return (uint)(((a) << 24) | ((b) << 16) | ((c) << 8) | (d));
         }
 
-        internal class chd_header
+
+        internal class mapentry
         {
-            internal uint[] compression;
-            internal ulong logicalbytes;  // total byte size of the image
-            internal ulong mapoffset;
-            internal ulong metaoffset;
-
-            internal uint hunkbytes;    // length of a CHD Block
-            internal uint unitbytes;
-            internal byte[] rawsha1;
-            internal byte[] sha1;
-            internal byte[] parentsha1;
-
-            internal uint hunkcount;
-            internal uint unitcount;
-
-            internal uint mapentrybytes;
-            internal uint totalhunks;
-
-            internal byte[] rawmap;
+            public compression_type comptype;
+            public ulong length;
+            public ulong offset;
+            public uint crc;
         }
+
 
         public static bool go(Stream file)
         {
             using BinaryReader br = new BinaryReader(file, Encoding.UTF8, true);
 
-            chd_header header = new chd_header();
-
-            header.compression = new uint[4];
+            uint[] compression = new uint[4];
             for (int i = 0; i < 4; i++)
-                header.compression[i] = br.ReadUInt32BE();
+                compression[i] = br.ReadUInt32BE();
 
-            header.logicalbytes = br.ReadUInt64BE();  // total byte size of the image
-            header.mapoffset = br.ReadUInt64BE();
-            header.metaoffset = br.ReadUInt64BE();
+            ulong totalbytes = br.ReadUInt64BE();  // total byte size of the image
+            ulong mapoffset = br.ReadUInt64BE();
+            ulong metaoffset = br.ReadUInt64BE();
 
-            header.hunkbytes = br.ReadUInt32BE();    // length of a CHD Block
-            header.unitbytes = br.ReadUInt32BE();
-            header.rawsha1 = br.ReadBytes(20);
-            header.sha1 = br.ReadBytes(20);
-            header.parentsha1 = br.ReadBytes(20);
+            uint blocksize = br.ReadUInt32BE();    // length of a CHD Block
+            uint unitbytes = br.ReadUInt32BE();
+            byte[] rawsha1 = br.ReadBytes(20);
+            byte[] sha1 = br.ReadBytes(20);
+            byte[] parentsha1 = br.ReadBytes(20);
 
-            header.hunkcount = (uint)((header.logicalbytes + header.hunkbytes - 1) / header.hunkbytes);
-            header.unitcount = (uint)((header.logicalbytes + header.unitbytes - 1) / header.unitbytes);
+            uint blockCount = (uint)((totalbytes + blocksize - 1) / blocksize);
+            //uint unitcount = (uint)((logicalbytes + unitbytes - 1) / unitbytes);
 
-            header.mapentrybytes = chd_compressed(header) ? (uint)12 : 4;
-            header.totalhunks = header.hunkcount;
+            bool chdCompressed = compression[0] != CHD_CODEC_NONE;
+            uint mapentrybytes = (chdCompressed) ? (uint)12 : 4;
 
-            decompress_v5_map(br, header);
-            byte[] cache = new byte[header.hunkbytes];
+            byte[] rawmap;
+            chd_error err = chdCompressed ?
+                    decompress_v5_map(br, mapoffset, blockCount, blocksize, mapentrybytes, unitbytes, out rawmap) :
+                    uncompressed_v5_map(br, mapoffset, blockCount, mapentrybytes, out rawmap);
 
-            for (uint i = 0; i < header.totalhunks; i++)
+            if (err != chd_error.CHDERR_NONE)
+                return false;
+
+            using SHA1 sha1Check = SHA1.Create();
+
+            byte[] buffer = new byte[blocksize];
+
+            int block = 0;
+            ulong sizetoGo = totalbytes;
+            while (sizetoGo > 0)
             {
-                uint mapIndex = i * header.mapentrybytes;
-                uint blocklen = header.rawmap.ReadUInt24BE((int)mapIndex + 1);
-                ulong blockoffs = header.rawmap.ReadUInt48BE((int)mapIndex + 4);
-                ushort blockcrc = header.rawmap.ReadUInt16BE((int)mapIndex + 10);
+                /* progress */
+                if ((block % 1000) == 0)
+                    Console.Write($"Verifying, {(100 - sizetoGo * 100 / totalbytes):N1}% complete...\r");
 
-                switch ((compression_type)header.rawmap[mapIndex])
-                {
-                    case compression_type.COMPRESSION_TYPE_0:
-                    case compression_type.COMPRESSION_TYPE_1:
-                    case compression_type.COMPRESSION_TYPE_2:
-                    case compression_type.COMPRESSION_TYPE_3:
-                        file.Seek((long)blockoffs, SeekOrigin.Begin);
+                err = readBlock(file, compression, block, mapentrybytes, rawmap, blocksize, ref buffer);
+                if (err != chd_error.CHDERR_NONE)
+                    return false;
 
-                        uint comp = header.compression[header.rawmap[mapIndex]];
-                        if (comp == CHD_CODEC_ZLIB)
-                        {
-                            //Console.WriteLine("ZLIB");
-                            using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
-                            {
-                                int bytesRead = 0;
-                                int blocksize = (int)header.hunkbytes;
-                                while (bytesRead < blocksize)
-                                {
-                                    int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
-                                    if (bytes == 0)
-                                        return false;
-                                    bytesRead += bytes;
-                                }
-                            }
-                            if (CRC16.calc(cache, header.hunkbytes) != blockcrc)
-                                return false;
-                        }
-                        else if (comp == CHD_CODEC_LZMA)
-                        {
-                            //Console.WriteLine("LZMA");
+                int sizenext = sizetoGo > (ulong)blocksize ? (int)blocksize : (int)sizetoGo;
 
-                            byte[] properties = new byte[5];
+                sha1Check.TransformBlock(buffer, 0, sizenext, null, 0);
 
-                            int posStateBits = 2;
-                            int numLiteralPosStateBits = 0;
-                            int numLiteralContextBits = 3;
-                            int dictionarySize = (int)header.hunkbytes;
-                            properties[0] = (byte)((posStateBits * 5 + numLiteralPosStateBits) * 9 + numLiteralContextBits);
-                            for (int j = 0; j < 4; j++)
-                                properties[1 + j] = (Byte)((dictionarySize >> (8 * j)) & 0xFF);
+                /* prepare for the next block */
+                block++;
+                sizetoGo -= (ulong)sizenext;
 
-                            using (Stream st = new LzmaStream(properties, file))
-                            {
-                                int bytesRead = 0;
-                                int blocksize = (int)header.hunkbytes;
-                                while (bytesRead < blocksize)
-                                {
-                                    int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
-                                    if (bytes == 0)
-                                        return false;
-                                    bytesRead += bytes;
-                                }
-                            }
-                            if (CRC16.calc(cache, header.hunkbytes) != blockcrc)
-                                return false;
-                        }
-                        else if (comp == CHD_CODEC_HUFFMAN)
-                        {
-                            //Console.WriteLine("HUFFMAN");
+            }
+            Console.WriteLine("");
 
-                            byte[] compressed_arr = new byte[blocklen];
-                            file.Read(compressed_arr, 0, (int)blocklen);
-                            BitStream bitbuf = new BitStream(compressed_arr, blocklen);
-                            HuffmanDecoder hd = new HuffmanDecoder(256, 16, bitbuf);
+            byte[] tmp = new byte[0];
+            sha1Check.TransformFinalBlock(tmp, 0, 0);
 
-                            if (hd.ImportTreeHuffman() != huffman_error.HUFFERR_NONE)
-                                return false;
-
-                            for (int j = 0; j < header.hunkbytes; j++)
-                            {
-                                cache[j] = hd.DecodeOne();
-                            }
-
-                            if (CRC16.calc(cache, header.hunkbytes) != blockcrc)
-                                return false;
-
-                        }
-                        else if (comp == CHD_CODEC_FLAC)
-                        {
-                            Console.WriteLine("FLAC");
-                        }
-                        else if (comp == CHD_CODEC_CD_ZLIB)
-                        {
-                            Console.WriteLine("CD_ZLIB");
-                        }
-                        else if (comp == CHD_CODEC_CD_LZMA)
-                        {
-                            Console.WriteLine("CD_LZMA");
-                        }
-                        else if (comp == CHD_CODEC_CD_FLAC)
-                        {
-                            Console.WriteLine("CD_FLAC");
-                        }
-                        else
-                        {
-                            Console.WriteLine("Unknown compression type");
-                        }
-                        break;
-
-                    case compression_type.COMPRESSION_NONE:
-                        break;
-                    case compression_type.COMPRESSION_SELF:
-                        break;
-                    case compression_type.COMPRESSION_PARENT:
-                        break;
-
-                }
-
+            // here it is now using the rawsha1 value from the header to validate the raw binary data.
+            if (!Util.ByteArrEquals(rawsha1, sha1Check.Hash))
+            {
+                return false;
             }
 
             return true;
+
         }
 
-        private static bool chd_compressed(chd_header header)
+        private static chd_error uncompressed_v5_map(BinaryReader br, ulong mapoffset, uint hunkcount, uint mapentrybytes, out byte[] rawmap)
         {
-            return header.compression[0] != CHD_CODEC_NONE;
-        }
-        private static uint map_size_v5(chd_header header)
-        {
-            return header.hunkcount * header.mapentrybytes;
+            uint rawmapsize = hunkcount * mapentrybytes; // uncompressed raw map size
+
+            rawmap = new byte[rawmapsize];
+            br.BaseStream.Seek((long)mapoffset, SeekOrigin.Begin);
+            br.BaseStream.Read(rawmap, 0, (int)rawmapsize);
+            return chd_error.CHDERR_NONE;
+
         }
 
-        private static chd_error decompress_v5_map(BinaryReader br, chd_header header)
+        private static chd_error decompress_v5_map(BinaryReader br, ulong mapoffset, uint hunkcount, uint hunkbytes, uint mapentrybytes, uint unitbytes, out byte[] rawmap)
         {
-            uint rawmapsize = map_size_v5(header);
-
-            if (!chd_compressed(header))
-            {
-                header.rawmap = new byte[rawmapsize];
-                br.BaseStream.Seek((long)header.mapoffset, SeekOrigin.Begin);
-                br.BaseStream.Read(header.rawmap, 0, (int)rawmapsize);
-                return chd_error.CHDERR_NONE;
-            }
+            uint rawmapsize = hunkcount * mapentrybytes;  // compressed raw map size
 
             /* read the reader */
-            br.BaseStream.Seek((long)header.mapoffset, SeekOrigin.Begin);
+            br.BaseStream.Seek((long)mapoffset, SeekOrigin.Begin);
             uint mapbytes = br.ReadUInt32BE(); //0
             ulong firstoffs = br.ReadUInt48BE(); //4
             ushort mapcrc = br.ReadUInt16BE();  //10
             byte lengthbits = br.ReadByte();  //12
             byte selfbits = br.ReadByte();    //13
-            byte parentbits=br.ReadByte();    //14
-                                              //15 not used
+            byte parentbits = br.ReadByte();    //14
+                                                //15 not used
 
             byte[] compressed_arr = new byte[mapbytes];
-            br.BaseStream.Seek((long)header.mapoffset + 16, SeekOrigin.Begin);
+            br.BaseStream.Seek((long)mapoffset + 16, SeekOrigin.Begin);
             br.BaseStream.Read(compressed_arr, 0, (int)mapbytes);
 
             BitStream bitbuf = new BitStream(compressed_arr, mapbytes);
-            header.rawmap = new byte[rawmapsize];
+            rawmap = new byte[rawmapsize];
 
             /* first decode the compression types */
             HuffmanDecoder decoder = new HuffmanDecoder(16, 8, bitbuf);
@@ -248,12 +154,12 @@ namespace CHDReaderTest
 
             int repcount = 0;
             byte lastcomp = 0;
-            for (uint hunknum = 0; hunknum < header.hunkcount; hunknum++)
+            for (uint hunknum = 0; hunknum < hunkcount; hunknum++)
             {
                 uint rawmapIndex = (hunknum * 12);
                 if (repcount > 0)
                 {
-                    header.rawmap[rawmapIndex] = lastcomp;
+                    rawmap[rawmapIndex] = lastcomp;
                     repcount--;
                 }
                 else
@@ -261,17 +167,17 @@ namespace CHDReaderTest
                     compression_type val = (compression_type)decoder.DecodeOne();
                     if (val == compression_type.COMPRESSION_RLE_SMALL)
                     {
-                        header.rawmap[rawmapIndex] = lastcomp;
+                        rawmap[rawmapIndex] = lastcomp;
                         repcount = 2 + decoder.DecodeOne();
                     }
                     else if (val == compression_type.COMPRESSION_RLE_LARGE)
                     {
-                        header.rawmap[rawmapIndex] = lastcomp;
+                        rawmap[rawmapIndex] = lastcomp;
                         repcount = 2 + 16 + (decoder.DecodeOne() << 4);
                         repcount += decoder.DecodeOne();
                     }
                     else
-                        header.rawmap[rawmapIndex] = lastcomp = (byte)val;
+                        rawmap[rawmapIndex] = lastcomp = (byte)val;
                 }
             }
 
@@ -279,13 +185,13 @@ namespace CHDReaderTest
             uint last_self = 0;
             ulong last_parent = 0;
             ulong curoffset = firstoffs;
-            for (uint hunknum = 0; hunknum < header.hunkcount; hunknum++)
+            for (uint hunknum = 0; hunknum < hunkcount; hunknum++)
             {
                 uint rawmapIndex = (hunknum * 12);
                 ulong offset = curoffset;
                 uint length = 0;
                 ushort crc = 0;
-                switch ((compression_type)header.rawmap[rawmapIndex])
+                switch ((compression_type)rawmap[rawmapIndex])
                 {
                     /* base types */
                     case compression_type.COMPRESSION_TYPE_0:
@@ -297,7 +203,7 @@ namespace CHDReaderTest
                         break;
 
                     case compression_type.COMPRESSION_NONE:
-                        curoffset += length = header.hunkbytes;
+                        curoffset += length = hunkbytes;
                         crc = (ushort)bitbuf.read(16);
                         break;
 
@@ -316,50 +222,188 @@ namespace CHDReaderTest
                         goto case compression_type.COMPRESSION_SELF_0;
 
                     case compression_type.COMPRESSION_SELF_0:
-                        header.rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_SELF;
+                        rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_SELF;
                         offset = last_self;
                         break;
 
                     case compression_type.COMPRESSION_PARENT_SELF:
-                        header.rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_PARENT;
-                        last_parent = offset = (((ulong)hunknum) * ((ulong)header.hunkbytes)) / header.unitbytes;
+                        rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_PARENT;
+                        last_parent = offset = (((ulong)hunknum) * ((ulong)hunkbytes)) / unitbytes;
                         break;
 
                     case compression_type.COMPRESSION_PARENT_1:
-                        last_parent += header.hunkbytes / header.unitbytes;
+                        last_parent += hunkbytes / unitbytes;
                         goto case compression_type.COMPRESSION_PARENT_0;
                     case compression_type.COMPRESSION_PARENT_0:
-                        header.rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_PARENT;
+                        rawmap[rawmapIndex] = (byte)compression_type.COMPRESSION_PARENT;
                         offset = last_parent;
                         break;
                 }
                 /* UINT24 length */
-                header.rawmap.PutUInt24BE((int)rawmapIndex + 1, length);
+                rawmap.PutUInt24BE((int)rawmapIndex + 1, length);
 
                 /* UINT48 offset */
-                header.rawmap.PutUInt48BE((int)rawmapIndex + 4, offset);
+                rawmap.PutUInt48BE((int)rawmapIndex + 4, offset);
 
                 /* crc16 */
-                header.rawmap.PutUInt16BE((int)rawmapIndex + 10, crc);
+                rawmap.PutUInt16BE((int)rawmapIndex + 10, crc);
             }
 
             /* verify the final CRC */
-            if (CRC16.calc(header.rawmap, header.hunkcount * 12) != mapcrc)
+            if (CRC16.calc(rawmap, hunkcount * 12) != mapcrc)
                 return chd_error.CHDERR_DECOMPRESSION_ERROR;
 
             return chd_error.CHDERR_NONE;
         }
 
-        /*
-        internal class mapentry
+
+        private static chd_error readBlock(Stream file, uint[] compression, int block, uint mapentrybytes, byte[] rawmap, uint blocksize, ref byte[] cache)
         {
-            public ulong offset;
-            public uint crc;
-            public ulong length;
-            public mapFlags flags;
+            int rawmapIndex = (int)(block * mapentrybytes);
+            ulong blockoffs;
+
+            if (compression[0] == CHD_CODEC_NONE)
+            {
+                blockoffs = rawmap.ReadUInt32BE(rawmapIndex) * blocksize;
+                if (blockoffs != 0)
+                {
+                    file.Seek((long)blockoffs, SeekOrigin.Begin);
+                    file.Read(cache, 0, (int)blocksize);
+                }
+                else
+                {
+                    for (int j = 0; j < blocksize; j++)
+                        cache[j] = 0;
+                }
+                return chd_error.CHDERR_NONE;
+            }
+
+
+            uint blocklen = rawmap.ReadUInt24BE(rawmapIndex + 1);
+            blockoffs = rawmap.ReadUInt48BE(rawmapIndex + 4);
+            ushort blockcrc = rawmap.ReadUInt16BE(rawmapIndex + 10);
+
+            switch ((compression_type)rawmap[rawmapIndex])
+            {
+                case compression_type.COMPRESSION_TYPE_0:
+                case compression_type.COMPRESSION_TYPE_1:
+                case compression_type.COMPRESSION_TYPE_2:
+                case compression_type.COMPRESSION_TYPE_3:
+                    file.Seek((long)blockoffs, SeekOrigin.Begin);
+
+                    uint comp = compression[rawmap[rawmapIndex]];
+                    if (comp == CHD_CODEC_ZLIB)
+                    {
+                        //Console.WriteLine("ZLIB");
+                        using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
+                        {
+                            int bytesRead = 0;
+                            while (bytesRead < blocksize)
+                            {
+                                int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
+                                if (bytes == 0)
+                                    return chd_error.CHDERR_INVALID_DATA;
+                                bytesRead += bytes;
+                            }
+                        }
+                        if (CRC16.calc(cache, blocksize) != blockcrc)
+                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                    }
+                    else if (comp == CHD_CODEC_LZMA)
+                    {
+                        //Console.WriteLine("LZMA");
+
+                        //hacky header creator
+                        byte[] properties = new byte[5];
+                        int posStateBits = 2;
+                        int numLiteralPosStateBits = 0;
+                        int numLiteralContextBits = 3;
+                        int dictionarySize = (int)blocksize;
+                        properties[0] = (byte)((posStateBits * 5 + numLiteralPosStateBits) * 9 + numLiteralContextBits);
+                        for (int j = 0; j < 4; j++)
+                            properties[1 + j] = (Byte)((dictionarySize >> (8 * j)) & 0xFF);
+
+                        using (Stream st = new LzmaStream(properties, file))
+                        {
+                            int bytesRead = 0;
+                            while (bytesRead < blocksize)
+                            {
+                                int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
+                                if (bytes == 0)
+                                    return chd_error.CHDERR_INVALID_DATA;
+                                bytesRead += bytes;
+                            }
+                        }
+                        if (CRC16.calc(cache, blocksize) != blockcrc)
+                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                    }
+                    else if (comp == CHD_CODEC_HUFFMAN)
+                    {
+                        //Console.WriteLine("HUFFMAN");
+
+                        byte[] compressed_arr = new byte[blocklen];
+                        file.Read(compressed_arr, 0, (int)blocklen);
+                        BitStream bitbuf = new BitStream(compressed_arr, blocklen);
+                        HuffmanDecoder hd = new HuffmanDecoder(256, 16, bitbuf);
+
+                        if (hd.ImportTreeHuffman() != huffman_error.HUFFERR_NONE)
+                            return chd_error.CHDERR_INVALID_DATA;
+
+                        for (int j = 0; j < blocksize; j++)
+                        {
+                            cache[j] = hd.DecodeOne();
+                        }
+
+                        if (CRC16.calc(cache, blocksize) != blockcrc)
+                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+
+                    }
+                    else if (comp == CHD_CODEC_FLAC)
+                    {
+                        //Console.WriteLine("FLAC");
+                    }
+                    else if (comp == CHD_CODEC_CD_ZLIB)
+                    {
+                        Console.WriteLine("CD_ZLIB");
+                    }
+                    else if (comp == CHD_CODEC_CD_LZMA)
+                    {
+                        Console.WriteLine("CD_LZMA");
+                    }
+                    else if (comp == CHD_CODEC_CD_FLAC)
+                    {
+                        Console.WriteLine("CD_FLAC");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Unknown compression type");
+                    }
+                    break;
+
+                case compression_type.COMPRESSION_NONE:
+                    //Console.WriteLine("Compression_None");
+                    file.Seek((long)blockoffs, SeekOrigin.Begin);
+                    if (blocklen != blocksize)
+                        return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                    file.Read(cache, 0, (int)blocksize);
+                    if (CRC16.calc(cache, blocksize) != blockcrc)
+                        return chd_error.CHDERR_DECOMPRESSION_ERROR;
+
+                    break;
+                case compression_type.COMPRESSION_SELF:
+                    //Console.WriteLine("Compression_Self");
+                    return readBlock(file, compression, (int)blockoffs, mapentrybytes, rawmap, blocksize, ref cache);
+
+                case compression_type.COMPRESSION_PARENT:
+                    Console.WriteLine("Compression_Parent");
+                    return chd_error.CHDERR_INVALID_FILE;
+            }
+
+
+            return chd_error.CHDERR_NONE;
         }
-        */
-        enum compression_type
+
+        public enum compression_type
         {
             /* codec #0
              * these types are live when running */
@@ -393,37 +437,7 @@ namespace CHDReaderTest
             /* same as the last COMPRESSION_PARENT block + 1 */
             COMPRESSION_PARENT_1
         };
-        enum chd_error
-        {
-            CHDERR_NONE,
-            CHDERR_NO_INTERFACE,
-            CHDERR_OUT_OF_MEMORY,
-            CHDERR_INVALID_FILE,
-            CHDERR_INVALID_PARAMETER,
-            CHDERR_INVALID_DATA,
-            CHDERR_FILE_NOT_FOUND,
-            CHDERR_REQUIRES_PARENT,
-            CHDERR_FILE_NOT_WRITEABLE,
-            CHDERR_READ_ERROR,
-            CHDERR_WRITE_ERROR,
-            CHDERR_CODEC_ERROR,
-            CHDERR_INVALID_PARENT,
-            CHDERR_HUNK_OUT_OF_RANGE,
-            CHDERR_DECOMPRESSION_ERROR,
-            CHDERR_COMPRESSION_ERROR,
-            CHDERR_CANT_CREATE_FILE,
-            CHDERR_CANT_VERIFY,
-            CHDERR_NOT_SUPPORTED,
-            CHDERR_METADATA_NOT_FOUND,
-            CHDERR_INVALID_METADATA_SIZE,
-            CHDERR_UNSUPPORTED_VERSION,
-            CHDERR_VERIFY_INCOMPLETE,
-            CHDERR_INVALID_METADATA,
-            CHDERR_INVALID_STATE,
-            CHDERR_OPERATION_PENDING,
-            CHDERR_NO_ASYNC_OPERATION,
-            CHDERR_UNSUPPORTED_FORMAT
-        };
+
 
 
     }

@@ -8,7 +8,7 @@ namespace CHDReaderTest
 
         static void Main(string[] args)
         {
-            CHD.TestCHD("D:\\chd\\out\\build\\x64-Debug\\tests\\zoo.chd");
+            //CHD.TestCHD("zoo.chd");
 
             //this fails because of missing AVHuff
             //CHD.TestCHD(@"MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");

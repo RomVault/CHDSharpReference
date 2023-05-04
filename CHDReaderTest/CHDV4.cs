@@ -23,6 +23,7 @@ namespace CHDReaderTest
         public static bool go(Stream file)
         {
             using BinaryReader br = new BinaryReader(file, Encoding.UTF8, true);
+
             uint flags = br.ReadUInt32BE();
 
             uint compression = br.ReadUInt32BE();
@@ -65,8 +66,8 @@ namespace CHDReaderTest
 
 
                 /* read the block into the cache */
-                hdErr err = readBlock(file, compression, block, map, (uint)blocksize, ref buffer);
-                if (err != hdErr.HDERR_NONE)
+                chd_error err = readBlock(file, compression, block, map, (uint)blocksize, ref buffer);
+                if (err != chd_error.CHDERR_NONE)
                     return false;
 
                 int sizenext = sizetoGo > (ulong)blocksize ? (int)blocksize : (int)sizetoGo;
@@ -164,7 +165,7 @@ namespace CHDReaderTest
         }
 
 
-        private static hdErr readBlock(Stream file, uint compression, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
+        private static chd_error readBlock(Stream file, uint compression, int mapindex, mapentry[] map, uint blocksize, ref byte[] cache)
         {
             bool checkCrc = true;
             mapentry mapEntry = map[mapindex];
@@ -186,7 +187,7 @@ namespace CHDReaderTest
                                     {
                                         int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
                                         if (bytes == 0)
-                                            return hdErr.HDERR_DECOMPRESSION_ERROR;
+                                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
                                         bytesRead += bytes;
                                     }
                                 }
@@ -195,11 +196,11 @@ namespace CHDReaderTest
                                 {
                                     // This needs to be converted from C++ to C#
                                     // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
-                                    return hdErr.HDERR_UNSUPPORTED;
+                                    return chd_error.CHDERR_UNSUPPORTED_FORMAT;
                                 }
                             default:
                                 {
-                                    return hdErr.HDERR_UNSUPPORTED;
+                                    return chd_error.CHDERR_UNSUPPORTED_FORMAT;
                                 }
                         }
                         break;
@@ -211,7 +212,7 @@ namespace CHDReaderTest
                         int bytes = file.Read(cache, 0, (int)blocksize);
 
                         if (bytes != (int)blocksize)
-                            return hdErr.HDERR_READ_ERROR;
+                            return chd_error.CHDERR_READ_ERROR;
                         break;
                     }
 
@@ -233,24 +234,24 @@ namespace CHDReaderTest
 
                 case mapFlags.MAP_ENTRY_TYPE_SELF_HUNK:
                     {
-                        hdErr ret = readBlock(file, compression, (int)mapEntry.offset, map, blocksize, ref cache);
-                        if (ret != hdErr.HDERR_NONE)
+                        chd_error ret = readBlock(file, compression, (int)mapEntry.offset, map, blocksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
                             return ret;
                         // check CRC in the read_block_into_cache call
                         checkCrc = false;
                         break;
                     }
                 default:
-                    return hdErr.HDERR_DECOMPRESSION_ERROR;
+                    return chd_error.CHDERR_DECOMPRESSION_ERROR;
 
             }
 
             if (checkCrc && (mapEntry.flags & mapFlags.MAP_ENTRY_FLAG_NO_CRC) == 0)
             {
                 if (!CRC.VerifyDigest(mapEntry.crc, cache, 0, blocksize))
-                    return hdErr.HDERR_DECOMPRESSION_ERROR;
+                    return chd_error.CHDERR_DECOMPRESSION_ERROR;
             }
-            return hdErr.HDERR_NONE;
+            return chd_error.CHDERR_NONE;
         }
 
     }

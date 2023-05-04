@@ -62,7 +62,7 @@ namespace CHDReaderTest.Utils
         }
         public static uint ReadUInt24BE(this byte[] arr, int offset)
         {
-            return ((uint)arr[offset + 1] << 16) | ((uint)arr[offset + 2] << 8) | (uint)arr[offset + 3];
+            return ((uint)arr[offset + 0] << 16) | ((uint)arr[offset + 1] << 8) | (uint)arr[offset + 2];
         }
         public static uint ReadUInt32BE(this byte[] arr, int offset)
         {
