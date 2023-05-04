@@ -9,14 +9,12 @@ namespace CHDReaderTest
 {
     internal static class CHDV2
     {
-
         internal class mapentry
         {
             public ulong offset;
             public ulong length;
             public mapFlags flags;
         }
-
 
         public static bool go(Stream file)
         {

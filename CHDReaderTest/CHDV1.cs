@@ -19,6 +19,7 @@ namespace CHDReaderTest
         public static bool go(Stream file)
         {
             using BinaryReader br = new BinaryReader(file, Encoding.UTF8, true);
+
             uint flags = br.ReadUInt32BE();
             uint compression = br.ReadUInt32BE();
             uint blocksize = br.ReadUInt32BE();

@@ -155,10 +155,10 @@ namespace CHDReaderTest
             metaHash[1] = (byte)((metaTag >> 16) & 0xff);
             metaHash[2] = (byte)((metaTag >> 8) & 0xff);
             metaHash[3] = (byte)((metaTag >> 0) & 0xff);
-            byte[] metaDataHasj = SHA1.HashData(metaData);
+            byte[] metaDataHash = SHA1.HashData(metaData);
             
             for (int i = 0; i < 20; i++)
-                metaHash[4 + i] = metaDataHasj[i];
+                metaHash[4 + i] = metaDataHash[i];
 
             return metaHash;
         }
