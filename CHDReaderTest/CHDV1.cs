@@ -9,7 +9,7 @@ namespace CHDReaderTest
 {
     internal static class CHDV1
     {
-        internal class mapentry
+        internal struct mapentry
         {
             public ulong offset;
             public ulong length;
@@ -40,15 +40,11 @@ namespace CHDReaderTest
             {
                 ulong tmpu = br.ReadUInt64BE();
 
-                mapentry me = new mapentry()
-                {
-                    offset = tmpu & 0xfffffffffff,
-                    length = tmpu >> 44,
-                };
-                me.flags = (me.length == blocksize)
+                map[i].offset = tmpu & 0xfffffffffff;
+                map[i].length = tmpu >> 44;
+                map[i].flags = (map[i].length == blocksize)
                                ? mapFlags.MAP_ENTRY_TYPE_UNCOMPRESSED
                                : mapFlags.MAP_ENTRY_TYPE_COMPRESSED;
-                map[i] = me;
             }
 
             using MD5 md5Check = MD5.Create();

@@ -9,7 +9,7 @@ namespace CHDReaderTest
 {
     internal static class CHDV3
     {
-        internal class mapentry
+        internal struct mapentry
         {
             public ulong offset;
             public uint crc;
@@ -39,15 +39,10 @@ namespace CHDReaderTest
 
             for (int i = 0; i < totalblocks; i++)
             {
-                mapentry me = new mapentry()
-                {
-                    offset = br.ReadUInt64BE(),
-                    crc = br.ReadUInt32BE(),
-                    length = br.ReadUInt16BE(),
-                    flags = (mapFlags)br.ReadUInt16BE()
-
-                };
-                map[i] = me;
+                map[i].offset = br.ReadUInt64BE();
+                map[i].crc = br.ReadUInt32BE();
+                map[i].length = br.ReadUInt16BE();
+                map[i].flags = (mapFlags)br.ReadUInt16BE();
             }
 
             using MD5 md5Check = MD5.Create();
