@@ -1,8 +1,7 @@
 ﻿using CHDReaderTest.Utils;
-using Compress.Support.Compression.LZMA;
 using System;
+using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -34,6 +33,8 @@ namespace CHDReaderTest
             public ushort crc;
         }
 
+
+        public static uint CHD_MDFLAGS_CHECKSUM = 0x01;        // indicates data is checksummed
 
         public static bool go(Stream file)
         {
@@ -79,7 +80,7 @@ namespace CHDReaderTest
                 if ((block % 1000) == 0)
                     Console.Write($"Verifying, {(100 - sizetoGo * 100 / totalbytes):N1}% complete...\r");
 
-                err = readBlock(file, compression, block, map, hunksize, ref buffer);
+                err = readBlock(file, compression, block, map, (int)hunksize, ref buffer);
                 if (err != chd_error.CHDERR_NONE)
                     return false;
 
@@ -103,7 +104,60 @@ namespace CHDReaderTest
                 return false;
             }
 
-            return true;
+
+
+            // List<byte[]>metaHashes contains the byte data that is hashed below to validate the meta data
+            // each metaHash is 24 bytes:
+            // 0-3  : is the byte data for the metaTag
+            // 4-23 : is the SHA1 of the metaData
+
+            List<byte[]> metaHashes = new List<byte[]>();
+
+            // loop over the metadata, until metaoffset=0
+            while (metaoffset != 0)
+            {
+                file.Seek((long)metaoffset, SeekOrigin.Begin);
+                uint metaTag = br.ReadUInt32BE();
+                uint metaLength = br.ReadUInt32BE();
+                ulong metaNext = br.ReadUInt64BE();
+                uint metaFlags = metaLength >> 24;
+                metaLength &= 0x00ffffff;
+
+                byte[] metaData = new byte[metaLength];
+                file.Read(metaData, 0, metaData.Length);
+
+                Console.WriteLine($"{(char)((metaTag >> 24) & 0xFF)}{(char)((metaTag >> 16) & 0xFF)}{(char)((metaTag >> 8) & 0xFF)}{(char)((metaTag >> 0) & 0xFF)}  Length: {metaLength}");
+                if (Util.isAscii(metaData))
+                    Console.WriteLine($"Data: {Encoding.ASCII.GetString(metaData)}");
+                else
+                    Console.WriteLine($"Data: Binary Data Length {metaData.Length}");
+
+                // take the 4 byte metaTag, and the metaData
+                // SHA1 the metaData to 20 byte SHA1
+                // metadata_hash return these 24 bytes in a byte[24]
+                if ((metaFlags & CHD_MDFLAGS_CHECKSUM) != 0)
+                    metaHashes.Add(metadata_hash(metaTag, metaData));
+
+                // set location of next meta data entry in the CHD (set to 0 if finished.)
+                metaoffset = metaNext;
+            }
+
+            // binary sort the metaHashes
+            metaHashes.Sort(Util.ByteArrCompare);
+
+            // build the final SHA1
+            // starting with the 20 byte rawsha1 from the main CHD data
+            // then add the 24 byte for each meta data entry
+            using SHA1 sha1Total = SHA1.Create();
+            sha1Total.TransformBlock(rawsha1, 0, rawsha1.Length, null, 0);
+
+            for (int i = 0; i < metaHashes.Count; i++)
+                sha1Total.TransformBlock(metaHashes[i], 0, metaHashes[i].Length, null, 0);
+
+            sha1Total.TransformFinalBlock(tmp, 0, 0);
+
+            // compare the calculated metaData + rawData SHA1 with sha1 from the CHD header
+            return Util.ByteArrEquals(sha1, sha1Total.Hash);
 
         }
 
@@ -139,7 +193,7 @@ namespace CHDReaderTest
             br.BaseStream.Seek((long)mapoffset + 16, SeekOrigin.Begin);
             br.BaseStream.Read(compressed_arr, 0, (int)mapbytes);
 
-            BitStream bitbuf = new BitStream(compressed_arr, mapbytes);
+            BitStream bitbuf = new BitStream(compressed_arr);
 
             /* first decode the compression types */
             HuffmanDecoder decoder = new HuffmanDecoder(16, 8, bitbuf);
@@ -247,114 +301,74 @@ namespace CHDReaderTest
 
             /* verify the final CRC */
             byte[] rawmap = new byte[hunkcount * 12];
-            for (uint hunknum = 0; hunknum < hunkcount; hunknum++)
+            for (int hunknum = 0; hunknum < hunkcount; hunknum++)
             {
-                uint rawmapIndex = hunknum * 12;
+                int rawmapIndex = hunknum * 12;
                 rawmap[rawmapIndex] = (byte)map[hunknum].comptype;
-                rawmap.PutUInt24BE((int)rawmapIndex + 1, map[hunknum].length);
-                rawmap.PutUInt48BE((int)rawmapIndex + 4, map[hunknum].offset);
-                rawmap.PutUInt16BE((int)rawmapIndex + 10, map[hunknum].crc);
+                rawmap.PutUInt24BE(rawmapIndex + 1, map[hunknum].length);
+                rawmap.PutUInt48BE(rawmapIndex + 4, map[hunknum].offset);
+                rawmap.PutUInt16BE(rawmapIndex + 10, map[hunknum].crc);
             }
-            if (CRC16.calc(rawmap, hunkcount * 12) != mapcrc)
+            if (CRC16.calc(rawmap, (int)hunkcount * 12) != mapcrc)
                 return chd_error.CHDERR_DECOMPRESSION_ERROR;
 
             return chd_error.CHDERR_NONE;
         }
 
 
-        private static chd_error readBlock(Stream file, uint[] compression, int hunknum, mapentry[] map, uint blocksize, ref byte[] cache)
+        private static chd_error readBlock(Stream file, uint[] compression, int hunkindex, mapentry[] map, int hunksize, ref byte[] cache)
         {
-            ulong blockoffs;
+            long blockoffs;
+            mapentry mapentry = map[hunkindex];
 
             if (compression[0] == CHD_CODEC_NONE)
             {
-                blockoffs = map[hunknum].offset * blocksize;
+                blockoffs = (long)mapentry.offset * hunksize;
                 if (blockoffs != 0)
                 {
                     file.Seek((long)blockoffs, SeekOrigin.Begin);
-                    file.Read(cache, 0, (int)blocksize);
+                    file.Read(cache, 0, (int)hunksize);
                 }
                 else
                 {
-                    for (int j = 0; j < blocksize; j++)
+                    for (int j = 0; j < hunksize; j++)
                         cache[j] = 0;
                 }
                 return chd_error.CHDERR_NONE;
             }
 
-            switch (map[hunknum].comptype)
+            switch (mapentry.comptype)
             {
                 case compression_type.COMPRESSION_TYPE_0:
                 case compression_type.COMPRESSION_TYPE_1:
                 case compression_type.COMPRESSION_TYPE_2:
                 case compression_type.COMPRESSION_TYPE_3:
-                    file.Seek((long)map[hunknum].offset, SeekOrigin.Begin);
+                    file.Seek((long)mapentry.offset, SeekOrigin.Begin);
+                    for (int i = 0; i < cache.Length; i++)
+                        cache[i] = 0;
 
-                    uint comp = compression[(int)map[hunknum].comptype];
+                    uint comp = compression[(int)mapentry.comptype];
                     if (comp == CHD_CODEC_ZLIB)
                     {
                         //Console.WriteLine("ZLIB");
-                        using (var st = new DeflateStream(file, CompressionMode.Decompress, true))
-                        {
-                            int bytesRead = 0;
-                            while (bytesRead < blocksize)
-                            {
-                                int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
-                                if (bytes == 0)
-                                    return chd_error.CHDERR_INVALID_DATA;
-                                bytesRead += bytes;
-                            }
-                        }
-                        if (CRC16.calc(cache, blocksize) != map[hunknum].crc)
-                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                        chd_error ret = CHDV5Readers.zlib(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
+
                     }
                     else if (comp == CHD_CODEC_LZMA)
                     {
                         //Console.WriteLine("LZMA");
-
-                        //hacky header creator
-                        byte[] properties = new byte[5];
-                        int posStateBits = 2;
-                        int numLiteralPosStateBits = 0;
-                        int numLiteralContextBits = 3;
-                        int dictionarySize = (int)blocksize;
-                        properties[0] = (byte)((posStateBits * 5 + numLiteralPosStateBits) * 9 + numLiteralContextBits);
-                        for (int j = 0; j < 4; j++)
-                            properties[1 + j] = (Byte)((dictionarySize >> (8 * j)) & 0xFF);
-
-                        using (Stream st = new LzmaStream(properties, file))
-                        {
-                            int bytesRead = 0;
-                            while (bytesRead < blocksize)
-                            {
-                                int bytes = st.Read(cache, bytesRead, (int)blocksize - bytesRead);
-                                if (bytes == 0)
-                                    return chd_error.CHDERR_INVALID_DATA;
-                                bytesRead += bytes;
-                            }
-                        }
-                        if (CRC16.calc(cache, blocksize) != map[hunknum].crc)
-                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                        chd_error ret = CHDV5Readers.lzma(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else if (comp == CHD_CODEC_HUFFMAN)
                     {
                         //Console.WriteLine("HUFFMAN");
-
-                        byte[] compressed_arr = new byte[map[hunknum].length];
-                        file.Read(compressed_arr, 0, (int)map[hunknum].length);
-                        BitStream bitbuf = new BitStream(compressed_arr, map[hunknum].length);
-                        HuffmanDecoder hd = new HuffmanDecoder(256, 16, bitbuf);
-
-                        if (hd.ImportTreeHuffman() != huffman_error.HUFFERR_NONE)
-                            return chd_error.CHDERR_INVALID_DATA;
-
-                        for (int j = 0; j < blocksize; j++)
-                        {
-                            cache[j] = hd.DecodeOne();
-                        }
-
-                        if (CRC16.calc(cache, blocksize) != map[hunknum].crc)
-                            return chd_error.CHDERR_DECOMPRESSION_ERROR;
+                        chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
 
                     }
                     else if (comp == CHD_CODEC_FLAC)
@@ -363,11 +377,17 @@ namespace CHDReaderTest
                     }
                     else if (comp == CHD_CODEC_CD_ZLIB)
                     {
-                        Console.WriteLine("CD_ZLIB");
+                        //Console.WriteLine("CD_ZLIB");
+                        chd_error ret = CHDV5Readers.cdzlib(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else if (comp == CHD_CODEC_CD_LZMA)
                     {
-                        Console.WriteLine("CD_LZMA");
+                        //Console.WriteLine("CD_LZMA");
+                        chd_error ret = CHDV5Readers.cdlzma(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else if (comp == CHD_CODEC_CD_FLAC)
                     {
@@ -377,21 +397,25 @@ namespace CHDReaderTest
                     {
                         Console.WriteLine("Unknown compression type");
                     }
+
+                    if (CRC16.calc(cache, hunksize) != mapentry.crc)
+                        return chd_error.CHDERR_DECOMPRESSION_ERROR;
                     break;
 
                 case compression_type.COMPRESSION_NONE:
                     //Console.WriteLine("Compression_None");
-                    file.Seek((long)map[hunknum].offset, SeekOrigin.Begin);
-                    if (map[hunknum].length != blocksize)
+                    file.Seek((long)mapentry.offset, SeekOrigin.Begin);
+                    if (mapentry.length != hunksize)
                         return chd_error.CHDERR_DECOMPRESSION_ERROR;
-                    file.Read(cache, 0, (int)blocksize);
-                    if (CRC16.calc(cache, blocksize) != map[hunknum].crc)
+                    file.Read(cache, 0, (int)hunksize);
+
+                    if (CRC16.calc(cache, hunksize) != mapentry.crc)
                         return chd_error.CHDERR_DECOMPRESSION_ERROR;
 
                     break;
                 case compression_type.COMPRESSION_SELF:
                     //Console.WriteLine("Compression_Self");
-                    return readBlock(file, compression, (int)map[hunknum].offset, map, blocksize, ref cache);
+                    return readBlock(file, compression, (int)mapentry.offset, map, hunksize, ref cache);
 
                 case compression_type.COMPRESSION_PARENT:
                     Console.WriteLine("Compression_Parent");
@@ -437,6 +461,25 @@ namespace CHDReaderTest
             COMPRESSION_PARENT_1
         };
 
+
+        private static byte[] metadata_hash(uint metaTag, byte[] metaData)
+        {
+            // make 24 byte metadata hash
+            // 0-3  :  metaTag
+            // 4-23 :  sha1 of the metaData
+
+            byte[] metaHash = new byte[24];
+            metaHash[0] = (byte)((metaTag >> 24) & 0xff);
+            metaHash[1] = (byte)((metaTag >> 16) & 0xff);
+            metaHash[2] = (byte)((metaTag >> 8) & 0xff);
+            metaHash[3] = (byte)((metaTag >> 0) & 0xff);
+            byte[] metaDataHash = SHA1.HashData(metaData);
+
+            for (int i = 0; i < 20; i++)
+                metaHash[4 + i] = metaDataHash[i];
+
+            return metaHash;
+        }
 
 
     }

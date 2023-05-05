@@ -38,7 +38,7 @@
                 0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
         };
 
-        public static ushort calc(byte[] data, uint length)
+        public static ushort calc(byte[] data, int length)
         {
             ushort crc = 0xffff;
 

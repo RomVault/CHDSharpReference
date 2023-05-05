@@ -2,7 +2,7 @@
   "profiles": {
     "CHDReaderTest": {
       "commandName": "Project",
-      "commandLineArgs": "\"\\\\10.0.4.11\\d$\\RomVaultCHD\\RomRoot\\MAME - Rollback CHDs\" \"\\\\10.0.4.11\\d$\\RomVaultCHD\\RomRoot\\MAME - CHDs\""
+      "commandLineArgs": "\"\\\\10.0.4.11\\d$\\RomVaultCHD\\RomRoot\\MAME - Software List CHDs\" \"\\\\10.0.4.11\\d$\\RomVaultCHD\\RomRoot\\MAME - Rollback CHDs\" \"\\\\10.0.4.11\\d$\\RomVaultCHD\\RomRoot\\MAME - CHDs\""
     }
   }
 }

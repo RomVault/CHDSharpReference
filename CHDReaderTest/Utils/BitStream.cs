@@ -5,8 +5,8 @@
         private uint buffer;
         private int bits;
         private byte[] readBuffer;
-        private uint doffset;
-        private uint dlength;
+        private int doffset;
+        private int dlength;
 
         public bool overflow()
         {
@@ -17,13 +17,13 @@
         *  create_bitstream - constructor
         *-------------------------------------------------
         */
-        public BitStream(byte[] src, uint srclength)
+        public BitStream(byte[] src)
         {
             buffer = 0;
             bits = 0;
             readBuffer = src;
             doffset = 0;
-            dlength = srclength;
+            dlength = src.Length;
         }
 
         /*-----------------------------------------------------
