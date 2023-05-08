@@ -1,6 +1,7 @@
 ﻿using CHDReaderTest.Utils;
 using Compress.Support.Compression.LZMA;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 
@@ -62,7 +63,7 @@ namespace CHDReaderTest
 
             for (int j = 0; j < hunksize; j++)
             {
-                cache[j] = hd.DecodeOne();
+                cache[j] = (byte)hd.DecodeOne();
             }
             return chd_error.CHDERR_NONE;
         }
@@ -89,34 +90,34 @@ namespace CHDReaderTest
             if (complen_bytes > 2)
                 complen_base = (complen_base << 8) | header[ecc_bytes + 2];
 
-            byte[] buffer = new byte[frames * CD_MAX_SECTOR_DATA];
-            byte[] buffer1 = new byte[frames * CD_MAX_SUBCODE_DATA];
+            byte[] bSector = new byte[frames * CD_MAX_SECTOR_DATA];
+            byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
 
             long filePos = file.Position;
-            zlib(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref buffer);
+            zlib(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
 
             file.Seek(filePos + complen_base, SeekOrigin.Begin);
-            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref buffer1);
+            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
 
             /* reassemble the data */
             for (int framenum = 0; framenum < frames; framenum++)
             {
-                Buffer.BlockCopy(buffer, framenum * CD_MAX_SECTOR_DATA, dest, framenum * CD_FRAME_SIZE, CD_MAX_SECTOR_DATA);
-                Buffer.BlockCopy(buffer1, framenum * CD_MAX_SUBCODE_DATA, dest, framenum * CD_FRAME_SIZE + CD_MAX_SECTOR_DATA, CD_MAX_SUBCODE_DATA);
+                Buffer.BlockCopy(bSector, framenum * CD_MAX_SECTOR_DATA, dest, framenum * CD_FRAME_SIZE, CD_MAX_SECTOR_DATA);
+                Buffer.BlockCopy(bSubcode, framenum * CD_MAX_SUBCODE_DATA, dest, framenum * CD_FRAME_SIZE + CD_MAX_SECTOR_DATA, CD_MAX_SUBCODE_DATA);
 
                 // reconstitute the ECC data and sync header 
-                int sector = framenum * CD_FRAME_SIZE;
+                int sectorStart = framenum * CD_FRAME_SIZE;
                 if ((header[framenum / 8] & (1 << (framenum % 8))) != 0)
                 {
-                    Buffer.BlockCopy(s_cd_sync_header, 0, dest, sector, s_cd_sync_header.Length);
-                    cdRom.ecc_generate(dest, sector);
+                    Buffer.BlockCopy(s_cd_sync_header, 0, dest, sectorStart, s_cd_sync_header.Length);
+                    cdRom.ecc_generate(dest, sectorStart);
                 }
             }
             return chd_error.CHDERR_NONE;
         }
 
 
-        internal static chd_error cdlzma(Stream file, int complen, int destlen, ref byte[] dest)
+        internal unsafe static chd_error cdlzma(Stream file, int complen, int destlen, ref byte[] dest)
         {
             /* determine header bytes */
             int frames = destlen / CD_FRAME_SIZE;
@@ -132,26 +133,26 @@ namespace CHDReaderTest
             if (complen_bytes > 2)
                 complen_base = (complen_base << 8) | header[ecc_bytes + 2];
 
-            byte[] buffer = new byte[frames * CD_MAX_SECTOR_DATA];
-            byte[] buffer1 = new byte[frames * CD_MAX_SUBCODE_DATA];
+            byte[] bSector = new byte[frames * CD_MAX_SECTOR_DATA];
+            byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
 
             long filePos = file.Position;
-            lzma(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref buffer);
+            lzma(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
             file.Seek(filePos + complen_base, SeekOrigin.Begin);
-            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref buffer1);
+            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
 
             /* reassemble the data */
             for (int framenum = 0; framenum < frames; framenum++)
             {
-                Buffer.BlockCopy(buffer, framenum * CD_MAX_SECTOR_DATA, dest, framenum * CD_FRAME_SIZE, CD_MAX_SECTOR_DATA);
-                Buffer.BlockCopy(buffer1, framenum * CD_MAX_SUBCODE_DATA, dest, framenum * CD_FRAME_SIZE + CD_MAX_SECTOR_DATA, CD_MAX_SUBCODE_DATA);
+                Buffer.BlockCopy(bSector, framenum * CD_MAX_SECTOR_DATA, dest, framenum * CD_FRAME_SIZE, CD_MAX_SECTOR_DATA);
+                Buffer.BlockCopy(bSubcode, framenum * CD_MAX_SUBCODE_DATA, dest, framenum * CD_FRAME_SIZE + CD_MAX_SECTOR_DATA, CD_MAX_SUBCODE_DATA);
 
                 // reconstitute the ECC data and sync header 
-                int sector = framenum * CD_FRAME_SIZE;
+                int sectorStart = framenum * CD_FRAME_SIZE;
                 if ((header[framenum / 8] & (1 << (framenum % 8))) != 0)
                 {
-                    Buffer.BlockCopy(s_cd_sync_header, 0, dest, sector, s_cd_sync_header.Length);
-                    cdRom.ecc_generate(dest, sector);
+                    Buffer.BlockCopy(s_cd_sync_header, 0, dest, sectorStart, s_cd_sync_header.Length);
+                    cdRom.ecc_generate(dest, sectorStart);
                 }
             }
             return chd_error.CHDERR_NONE;

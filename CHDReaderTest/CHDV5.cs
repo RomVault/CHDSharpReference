@@ -14,6 +14,7 @@ namespace CHDReaderTest
         readonly static uint CHD_CODEC_LZMA = CHD_MAKE_TAG('l', 'z', 'm', 'a');
         readonly static uint CHD_CODEC_HUFFMAN = CHD_MAKE_TAG('h', 'u', 'f', 'f');
         readonly static uint CHD_CODEC_FLAC = CHD_MAKE_TAG('f', 'l', 'a', 'c');
+        readonly static uint CHD_CODEC_AVHUFF = CHD_MAKE_TAG('a', 'v', 'h', 'u');
         /* general codecs with CD frontend */
         readonly static uint CHD_CODEC_CD_ZLIB = CHD_MAKE_TAG('c', 'd', 'z', 'l');
         readonly static uint CHD_CODEC_CD_LZMA = CHD_MAKE_TAG('c', 'd', 'l', 'z');
@@ -223,13 +224,13 @@ namespace CHDReaderTest
                     if (val == compression_type.COMPRESSION_RLE_SMALL)
                     {
                         map[hunknum].comptype = lastcomp;
-                        repcount = 2 + decoder.DecodeOne();
+                        repcount = 2 + (int)decoder.DecodeOne();
                     }
                     else if (val == compression_type.COMPRESSION_RLE_LARGE)
                     {
                         map[hunknum].comptype = lastcomp;
-                        repcount = 2 + 16 + (decoder.DecodeOne() << 4);
-                        repcount += decoder.DecodeOne();
+                        repcount = 2 + 16 + ((int)decoder.DecodeOne() << 4);
+                        repcount += (int)decoder.DecodeOne();
                     }
                     else
                         map[hunknum].comptype = lastcomp = val;
@@ -392,6 +393,14 @@ namespace CHDReaderTest
                     else if (comp == CHD_CODEC_CD_FLAC)
                     {
                         Console.WriteLine("CD_FLAC");
+                    }
+                    else if (comp==CHD_CODEC_AVHUFF)
+                    {
+                        byte[] source = new byte[mapentry.length];
+                        file.Read(source, 0, source.Length);
+                        chd_error ret = avHuff.decode_data(source, mapentry.length, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else
                     {

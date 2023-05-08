@@ -25,6 +25,17 @@
             doffset = 0;
             dlength = src.Length;
         }
+        public unsafe BitStream(byte* src, int length)
+        {
+            readBuffer = new byte[length];
+            for (int i = 0; i < length; i++)
+                readBuffer[i] = src[i];
+
+            buffer = 0;
+            bits = 0;
+            doffset = 0;
+            dlength = length;
+        }
 
         /*-----------------------------------------------------
         *  bitstream_peek - fetch the requested number of bits
@@ -74,5 +85,24 @@
             remove(numbits);
             return result;
         }
+
+        /*-------------------------------------------------
+        *  flush - flush to the nearest byte
+        *-------------------------------------------------
+        */
+
+        public int flush()
+        {
+            while (bits >= 8)
+            {
+                doffset--;
+                bits -= 8;
+            }
+            bits = 0;
+            buffer = 0;
+            return doffset;
+        }
+
+
     }
 }

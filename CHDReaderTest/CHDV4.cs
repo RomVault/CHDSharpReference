@@ -14,7 +14,7 @@ namespace CHDReaderTest
         {
             public ulong offset;
             public uint crc;
-            public ulong length;
+            public uint length;
             public mapFlags flags;
         }
 
@@ -43,8 +43,8 @@ namespace CHDReaderTest
             {
                 map[i].offset = br.ReadUInt64BE();
                 map[i].crc = br.ReadUInt32BE();
-                map[i].length = br.ReadUInt16BE();
-                map[i].flags = (mapFlags)br.ReadUInt16BE();
+                map[i].length = (uint)((br.ReadUInt16BE()) | (br.ReadByte() << 16));
+                map[i].flags = (mapFlags)br.ReadByte();
             }
 
             using SHA1 sha1Check = SHA1.Create();
@@ -189,9 +189,14 @@ namespace CHDReaderTest
                                 break;
                             case 3: // 3=A/V Huff
                                 {
-                                    // This needs to be converted from C++ to C#
-                                    // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
-                                    return chd_error.CHDERR_UNSUPPORTED_FORMAT;
+                                    byte[] source = new byte[mapEntry.length];
+                                    file.Read(source, 0, (int)mapEntry.length);
+                                    for (int i = 0; i < cache.Length; i++)
+                                        cache[i] = 0;
+                                    chd_error ret = avHuff.decode_data(source, mapEntry.length, ref cache);
+                                    if (ret != chd_error.CHDERR_NONE)
+                                        return ret;
+                                    break;
                                 }
                             default:
                                 {

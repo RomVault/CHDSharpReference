@@ -63,12 +63,17 @@
             this.bitbuf = bitbuf;
         }
 
+        public void AssignBitStream(BitStream bitbufReplace)
+        {
+            bitbuf = bitbufReplace;
+        }
+
         /*-------------------------------------------------
         *  decode_one - decode a single code from the
         *  huffman stream
         *-------------------------------------------------
         */
-        public byte DecodeOne()
+        public uint DecodeOne()
         {
             /* peek ahead to get maxbits worth of data */
             uint bits = bitbuf.peek(maxbits);
@@ -78,7 +83,7 @@
             bitbuf.remove((int)(lookup & 0x1f));
 
             /* return the value */
-            return (byte)(lookup >> 5);
+            return (lookup >> 5);
         }
 
         /*-------------------------------------------------
@@ -90,7 +95,7 @@
         {
 
             int numbits;
-            uint curnode;
+            int curnode;
             huffman_error error;
 
             /* bits per entry depends on the maxbits */
@@ -105,17 +110,17 @@
             for (curnode = 0; curnode < numcodes;)
             {
                 /* a non-one value is just raw */
-                byte nodebits = (byte)bitbuf.read(numbits);
+                int nodebits =(int) bitbuf.read(numbits);
                 if (nodebits != 1)
-                    huffnode[curnode++].numbits = nodebits;
+                    huffnode[curnode++].numbits = (byte)nodebits;
 
                 /* a one value is an escape code */
                 else
                 {
                     /* a double 1 is just a single 1 */
-                    nodebits = (byte)bitbuf.read(numbits);
+                    nodebits = (int)bitbuf.read(numbits);
                     if (nodebits == 1)
-                        huffnode[curnode++].numbits = nodebits;
+                        huffnode[curnode++].numbits = (byte)nodebits;
 
                     /* otherwise, we need one for value for the repeat count */
                     else
@@ -124,7 +129,7 @@
                         if (repcount + curnode > numcodes)
                             return huffman_error.HUFFERR_INVALID_DATA;
                         while (repcount-- != 0)
-                            huffnode[curnode++].numbits = nodebits;
+                            huffnode[curnode++].numbits = (byte)nodebits;
                     }
                 }
             }
@@ -194,7 +199,7 @@
             /* now process the rest of the data */
             for (curcode = 0; curcode < numcodes;)
             {
-                int value = smallhuff.DecodeOne();
+                int value = (int)smallhuff.DecodeOne();
                 if (value != 0)
                     huffnode[curcode++].numbits = (byte)(last = value - 1);
                 else

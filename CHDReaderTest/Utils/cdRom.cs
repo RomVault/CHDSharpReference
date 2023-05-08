@@ -291,13 +291,12 @@
 
     public static void ecc_generate(byte[] data, int sectorOffset)
     {
-        int i;
         /* first verify P is */
-        for (i = 0; i < ECC_P_NUM_BYTES; i++)
+        for (int i = 0; i < ECC_P_NUM_BYTES; i++)
             ecc_compute_bytes(data, sectorOffset, poffsets[i], ECC_P_COMP, sectorOffset + ECC_P_OFFSET + i, sectorOffset + ECC_P_OFFSET + ECC_P_NUM_BYTES + i);
 
         /* then verify Q is */
-        for (i = 0; i < ECC_Q_NUM_BYTES; i++)
+        for (int i = 0; i < ECC_Q_NUM_BYTES; i++)
             ecc_compute_bytes(data, sectorOffset, qoffsets[i], ECC_Q_COMP, sectorOffset + ECC_Q_OFFSET + i, sectorOffset + ECC_Q_OFFSET + ECC_Q_NUM_BYTES + i);
     }
 }
