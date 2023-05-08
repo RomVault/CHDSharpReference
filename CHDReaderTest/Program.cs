@@ -10,7 +10,7 @@ namespace CHDReaderTest
         static void Main(string[] args)
         {
             //this fails because of missing AVHuff
-            CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");
+            //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");
             //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - CHDs\MAME CHDs (merged)\cliffhgr\cliffhgr.chd");
 
 
