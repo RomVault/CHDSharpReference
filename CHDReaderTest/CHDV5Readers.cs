@@ -117,7 +117,7 @@ namespace CHDReaderTest
         }
 
 
-        internal unsafe static chd_error cdlzma(Stream file, int complen, int destlen, ref byte[] dest)
+        internal static chd_error cdlzma(Stream file, int complen, int destlen, ref byte[] dest)
         {
             /* determine header bytes */
             int frames = destlen / CD_FRAME_SIZE;

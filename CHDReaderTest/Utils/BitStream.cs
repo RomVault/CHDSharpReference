@@ -8,6 +8,8 @@
         private int doffset;
         private int dlength;
 
+        private int initialOffset = 0;
+
         public bool overflow()
         {
             return doffset - bits / 8 > dlength;
@@ -17,24 +19,13 @@
         *  create_bitstream - constructor
         *-------------------------------------------------
         */
-        public BitStream(byte[] src)
+        public BitStream(byte[] src, int offset = 0)
         {
             buffer = 0;
             bits = 0;
             readBuffer = src;
-            doffset = 0;
+            doffset = initialOffset = offset;
             dlength = src.Length;
-        }
-        public unsafe BitStream(byte* src, int length)
-        {
-            readBuffer = new byte[length];
-            for (int i = 0; i < length; i++)
-                readBuffer[i] = src[i];
-
-            buffer = 0;
-            bits = 0;
-            doffset = 0;
-            dlength = length;
         }
 
         /*-----------------------------------------------------
@@ -100,7 +91,7 @@
             }
             bits = 0;
             buffer = 0;
-            return doffset;
+            return doffset - initialOffset;
         }
 
 

@@ -7,7 +7,7 @@ namespace CHDReaderTest
     internal class Program
     {
 
-        static unsafe void Main(string[] args)
+        static void Main(string[] args)
         {
             //this fails because of missing AVHuff
             CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");

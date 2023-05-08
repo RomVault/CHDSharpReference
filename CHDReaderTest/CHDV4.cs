@@ -193,7 +193,7 @@ namespace CHDReaderTest
                                     file.Read(source, 0, (int)mapEntry.length);
                                     for (int i = 0; i < cache.Length; i++)
                                         cache[i] = 0;
-                                    chd_error ret = avHuff.decode_data(source, mapEntry.length, ref cache);
+                                    chd_error ret = avHuff.DecodeData(source, mapEntry.length, ref cache);
                                     if (ret != chd_error.CHDERR_NONE)
                                         return ret;
                                     break;
