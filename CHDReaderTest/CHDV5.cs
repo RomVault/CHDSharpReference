@@ -367,7 +367,9 @@ namespace CHDReaderTest
                     else if (comp == CHD_CODEC_HUFFMAN)
                     {
                         //Console.WriteLine("HUFFMAN");
-                        chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, ref cache);
+                        chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, ref cache); 
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
 
                     }
                     else if (comp == CHD_CODEC_FLAC)
