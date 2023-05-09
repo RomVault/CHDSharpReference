@@ -368,13 +368,14 @@ namespace CHDReaderTest
                     {
                         //Console.WriteLine("HUFFMAN");
                         chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, ref cache);
-                        if (ret != chd_error.CHDERR_NONE)
-                            return ret;
 
                     }
                     else if (comp == CHD_CODEC_FLAC)
                     {
                         Console.WriteLine("FLAC");
+                        chd_error ret = CHDV5Readers.flac(file,(int)mapentry.length,hunksize,ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else if (comp == CHD_CODEC_CD_ZLIB)
                     {
@@ -392,7 +393,10 @@ namespace CHDReaderTest
                     }
                     else if (comp == CHD_CODEC_CD_FLAC)
                     {
-                        Console.WriteLine("CD_FLAC");
+                        Console.WriteLine("CD_FLAC"); 
+                        chd_error ret = CHDV5Readers.cdflac(file, (int)mapentry.length, hunksize, ref cache);
+                        if (ret != chd_error.CHDERR_NONE)
+                            return ret;
                     }
                     else if (comp==CHD_CODEC_AVHUFF)
                     {

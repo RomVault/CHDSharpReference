@@ -68,6 +68,23 @@ namespace CHDReaderTest
             return chd_error.CHDERR_NONE;
         }
 
+        internal static chd_error flac(Stream file, int compsize, int hunksize, ref byte[] cache)
+        {
+            byte[] compbytes = new byte[compsize];
+            file.Read(compbytes, 0, compsize);
+
+            // call FLAC code passing in compressed data 'compbytes' and outputing to 'cache', expected output size = hunksize
+            return chd_error.CHDERR_UNSUPPORTED_FORMAT;
+
+            //return chd_error.CHDERR_NONE;
+        }
+
+
+
+        /******************* CD decoders **************************/
+
+
+
         private const int CD_MAX_SECTOR_DATA = 2352;
         private const int CD_MAX_SUBCODE_DATA = 96;
         private static readonly int CD_FRAME_SIZE = CD_MAX_SECTOR_DATA + CD_MAX_SUBCODE_DATA;
@@ -94,10 +111,14 @@ namespace CHDReaderTest
             byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
 
             long filePos = file.Position;
-            zlib(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
+            chd_error err = zlib(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
 
             file.Seek(filePos + complen_base, SeekOrigin.Begin);
-            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
+            err = zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
 
             /* reassemble the data */
             for (int framenum = 0; framenum < frames; framenum++)
@@ -137,9 +158,61 @@ namespace CHDReaderTest
             byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
 
             long filePos = file.Position;
-            lzma(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
+            chd_error err = lzma(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
+
             file.Seek(filePos + complen_base, SeekOrigin.Begin);
-            zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
+            err = zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
+
+            /* reassemble the data */
+            for (int framenum = 0; framenum < frames; framenum++)
+            {
+                Buffer.BlockCopy(bSector, framenum * CD_MAX_SECTOR_DATA, dest, framenum * CD_FRAME_SIZE, CD_MAX_SECTOR_DATA);
+                Buffer.BlockCopy(bSubcode, framenum * CD_MAX_SUBCODE_DATA, dest, framenum * CD_FRAME_SIZE + CD_MAX_SECTOR_DATA, CD_MAX_SUBCODE_DATA);
+
+                // reconstitute the ECC data and sync header 
+                int sectorStart = framenum * CD_FRAME_SIZE;
+                if ((header[framenum / 8] & (1 << (framenum % 8))) != 0)
+                {
+                    Buffer.BlockCopy(s_cd_sync_header, 0, dest, sectorStart, s_cd_sync_header.Length);
+                    cdRom.ecc_generate(dest, sectorStart);
+                }
+            }
+            return chd_error.CHDERR_NONE;
+        }
+
+
+        internal static chd_error cdflac(Stream file, int complen, int destlen, ref byte[] dest)
+        {
+            /* determine header bytes */
+            int frames = destlen / CD_FRAME_SIZE;
+            int complen_bytes = (destlen < 65536) ? 2 : 3;
+            int ecc_bytes = (frames + 7) / 8;
+            int header_bytes = ecc_bytes + complen_bytes;
+
+            byte[] header = new byte[header_bytes];
+            file.Read(header, 0, header_bytes);
+
+            /* extract compressed length of base */
+            int complen_base = ((header[ecc_bytes + 0] << 8) | header[ecc_bytes + 1]);
+            if (complen_bytes > 2)
+                complen_base = (complen_base << 8) | header[ecc_bytes + 2];
+
+            byte[] bSector = new byte[frames * CD_MAX_SECTOR_DATA];
+            byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
+
+            long filePos = file.Position;
+            chd_error err = flac(file, complen_base, frames * CD_MAX_SECTOR_DATA, ref bSector);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
+
+            file.Seek(filePos + complen_base, SeekOrigin.Begin);
+            err = zlib(file, complen - complen_base - header_bytes, frames * CD_MAX_SUBCODE_DATA, ref bSubcode);
+            if (err != chd_error.CHDERR_NONE)
+                return err;
 
             /* reassemble the data */
             for (int framenum = 0; framenum < frames; framenum++)
