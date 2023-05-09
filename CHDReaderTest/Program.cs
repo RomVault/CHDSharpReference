@@ -9,8 +9,13 @@ namespace CHDReaderTest
 
         static void Main(string[] args)
         {
-            //this fails because of missing AVHuff
-            //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");
+            // These files are hitting avHuff
+            // MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
+            // MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
+            // MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
+            // MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
+
+            CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");
             //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - CHDs\MAME CHDs (merged)\cliffhgr\cliffhgr.chd");
 
 

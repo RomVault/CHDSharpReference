@@ -4,31 +4,68 @@ using System;
 
 internal static class avHuff
 {
-   
-    internal static chd_error DecodeData(byte[] source, uint complength, ref byte[] dest)
+    /*
+     Source input buffer structure:
+
+     Header:
+     00     =  Size of the Meta Data to be put into the output buffer right after the header.
+     01     =  Number of Audio Channel.
+     02,03  =  Number of Audio sampled values per chunk.
+     04,05  =  width in pixels of image.
+     06,07  =  height in pixels of image.
+     08,09  =  Size of the source data for the audio channels huffman trees. (set to 0xffff is using FLAC.)
+
+     10,11  =  size of compressed audio channel 1
+     12,13  =  size of compressed audio channel 2
+     .
+     .         (Max audio channels coded to 16)
+     Total Header size = 10 + 2 * Number of Audio Channels.
+
+
+     Meta Data: (Size from header 00)
+     
+     Audio Huffman Tree: (Size from header 08,09)
+
+     Audio Compressed Data Channels: (Repeated for each Audio Channel, Size from Header starting at 10,11)
+
+     Video Compressed Data:   Rest of Input Chuck.
+
+    */
+
+    internal static chd_error DecodeData(byte[] source, uint complen, ref byte[] dest)
     {
         // extract info from the header
-        if (complength < 8)
+        if (complen < 8)
             return chd_error.CHDERR_INVALID_DATA;
-        uint metasize = source[0];
-        uint channels = source[1];
-        uint samples = (uint)(source[2] << 8) + source[3];
-        uint width = (uint)(source[4] << 8) + source[5];
-        uint height = (uint)(source[6] << 8) + source[7];
+        uint metaDataLength = source[0];
+        uint audioChannels = source[1];
+        uint audioSamplesPerHunk = source.ReadUInt16BE(2);
+        uint videoWidth = source.ReadUInt16BE(4);
+        uint videoHeight = source.ReadUInt16BE(6);
 
+        uint sourceTotalSize = 10 + 2 * audioChannels;
         // validate that the sizes make sense
-        if (complength < 10 + 2 * channels)
+        if (complen < sourceTotalSize)
             return chd_error.CHDERR_INVALID_DATA;
-        uint totalsize = 10 + 2 * channels;
-        uint treesize = (uint)(source[8] << 8) | source[9];
-        if (treesize != 0xffff)
-            totalsize += treesize;
-        for (int chnum = 0; chnum < channels; chnum++)
-            totalsize += (uint)(source[10 + 2 * chnum] << 8) | source[11 + 2 * chnum];
-        if (totalsize >= complength)
+
+        sourceTotalSize += metaDataLength;
+
+        uint audioHuffmanTreeSize = source.ReadUInt16BE(8);
+        if (audioHuffmanTreeSize != 0xffff)
+            sourceTotalSize += audioHuffmanTreeSize;
+
+        uint?[] audioChannelCompressedSize = new uint?[16];
+        for (int chnum = 0; chnum < audioChannels; chnum++)
+        {
+            audioChannelCompressedSize[chnum] = source.ReadUInt16BE(10 + 2 * chnum);
+            sourceTotalSize += (uint)audioChannelCompressedSize[chnum];
+        }
+
+        if (sourceTotalSize >= complen)
             return chd_error.CHDERR_INVALID_DATA;
-        // starting offsets
-        uint srcoffs = 10 + 2 * channels;
+
+        // starting offsets of source data
+        uint srcOffset = 10 + 2 * audioChannels;
 
 
         uint destOffset = 0;
@@ -37,72 +74,70 @@ internal static class avHuff
         dest[1] = (byte)'h';
         dest[2] = (byte)'a';
         dest[3] = (byte)'v';
-        dest[4] = (byte)metasize;
-        dest[5] = (byte)channels;
-        dest[6] = (byte)(samples >> 8);
-        dest[7] = (byte)samples;
-        dest[8] = (byte)(width >> 8);
-        dest[9] = (byte)width;
-        dest[10] = (byte)(height >> 8);
-        dest[11] = (byte)height;
+        dest[4] = (byte)metaDataLength;
+        dest[5] = (byte)audioChannels;
+        dest[6] = (byte)(audioSamplesPerHunk >> 8);
+        dest[7] = (byte)audioSamplesPerHunk;
+        dest[8] = (byte)(videoWidth >> 8);
+        dest[9] = (byte)videoWidth;
+        dest[10] = (byte)(videoHeight >> 8);
+        dest[11] = (byte)videoHeight;
         destOffset += 12;
 
 
 
-        // determine the start of each piece of data
-        uint metastart = destOffset;
-        destOffset += metasize;
-
-        uint?[] audiostart = new uint?[16];
-        for (int chnum = 0; chnum < channels; chnum++)
+        uint metaDestStart = destOffset;
+        if (metaDataLength > 0)
         {
-            audiostart[chnum] = destOffset;
-            destOffset += 2 * samples;
+            Buffer.BlockCopy(source, (int)srcOffset, dest, (int)metaDestStart, (int)metaDataLength);
+            srcOffset += metaDataLength;
+            destOffset += metaDataLength;
         }
-        uint videostart = destOffset;
 
-
-
-        if (metasize > 0)
+        uint?[] audioChannelDestStart = new uint?[16];
+        for (int chnum = 0; chnum < audioChannels; chnum++)
         {
-            if (metastart != null)
-                Buffer.BlockCopy(source, (int)srcoffs, dest, (int)metastart, (int)metasize);
-            srcoffs += metasize;
+            audioChannelDestStart[chnum] = destOffset;
+            destOffset += 2 * audioSamplesPerHunk;
         }
+        uint videoDestStart = destOffset;
+
 
         // decode the audio channels
-        if (channels > 0)
+        if (audioChannels > 0)
         {
             // decode the audio
-            chd_error err = DecodeAudio(channels, samples, source, srcoffs, dest, audiostart, 8);
+            chd_error err = DecodeAudio(audioChannels, audioSamplesPerHunk, source, srcOffset, audioHuffmanTreeSize, audioChannelCompressedSize, dest, audioChannelDestStart);
             if (err != chd_error.CHDERR_NONE)
                 return err;
 
             // advance the pointers past the data
-            treesize = (uint)(source[8] << 8) + source[9];
-            if (treesize != 0xffff)
-                srcoffs += treesize;
-            for (int chnum = 0; chnum < channels; chnum++)
-                srcoffs += (uint)(source[10 + 2 * chnum] << 8) + source[11 + 2 * chnum];
+            if (audioHuffmanTreeSize != 0xffff)
+                srcOffset += audioHuffmanTreeSize;
+            for (int chnum = 0; chnum < audioChannels; chnum++)
+                srcOffset += (uint)audioChannelCompressedSize[chnum];
         }
 
         // decode the video data
-        if (width > 0 && height > 0 && videostart != null)
+        if (videoWidth > 0 && videoHeight > 0)
         {
-            uint videostride = 2 * width;
+            uint videostride = 2 * videoWidth;
             // decode the video
-            chd_error err = decodeVideo(width, height, source, srcoffs, complength - srcoffs, dest, videostart, videostride);
+            chd_error err = decodeVideo(videoWidth, videoHeight, source, srcOffset, complen - srcOffset, dest, videoDestStart, videostride);
             if (err != chd_error.CHDERR_NONE)
                 return err;
         }
+
+        uint videoEnd = videoDestStart + videoWidth * videoHeight * 2;
+        for (uint index = videoEnd; index < dest.Length; index++)
+            dest[index] = 0;
+
         return chd_error.CHDERR_NONE;
     }
 
-  
-    private static chd_error DecodeAudio(uint channels, uint samples, byte[] source, uint srcOffs, byte[] dest, uint?[] destIndex, uint sizes)
+
+    private static chd_error DecodeAudio(uint channels, uint samples, byte[] source, uint srcOffs, uint treesize, uint?[] audioChannelCompressedSize, byte[] dest, uint?[] audioChannelDestStart)
     {
-        // extract the huffman trees
-        ushort treesize = (ushort)((source[sizes + 0] << 8) | source[sizes + 1]);
 
 #if AVHUFF_USE_FLAC
 
@@ -165,11 +200,8 @@ internal static class avHuff
         // loop over channels
         for (int chnum = 0; chnum < channels; chnum++)
         {
-            // extract the size of this channel
-            uint size = (uint)(source[sizes + chnum * 2 + 2] << 8) | source[sizes + chnum * 2 + 3];
-
             // only process if the data is requested
-            uint? curdest = destIndex[chnum];
+            uint? curdest = audioChannelDestStart[chnum];
             if (curdest != null)
             {
                 int prevsample = 0;
@@ -216,12 +248,12 @@ internal static class avHuff
             }
 
             // advance to the next channel's data
-            srcOffs += size;
+            srcOffs += (uint)audioChannelCompressedSize[chnum];
         }
         return chd_error.CHDERR_NONE;
     }
 
-   
+
 
     private static chd_error decodeVideo(uint width, uint height, byte[] source, uint sourceOffset, uint complength, byte[] dest, uint destOffset, uint dstride)
     {
@@ -232,7 +264,7 @@ internal static class avHuff
             return chd_error.CHDERR_INVALID_DATA;
     }
 
-   
+
 
     private static chd_error DecodeVideoLossless(uint width, uint height, byte[] source, uint sourceOffset, uint complength, byte[] dest, uint destOffset, uint dstride)
     {
@@ -285,7 +317,7 @@ internal static class avHuff
         return chd_error.CHDERR_NONE;
     }
 
-   
+
 
 }
 

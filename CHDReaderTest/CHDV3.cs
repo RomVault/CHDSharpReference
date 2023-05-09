@@ -142,19 +142,9 @@ namespace CHDReaderTest
                                 break;
                             case 3: // 3=A/V Huff
                                 {
-                                    // This needs to be converted from C++ to C#
-                                    // https://github.com/mamedev/mame/blob/master/src/lib/util/avhuff.cpp
-
-                                    // These files are hitting here with compression = 3
-                                    // MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
-                                    // MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
-                                    // MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
-                                    // MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
-
+                                  
                                     byte[] source = new byte[mapEntry.length];
                                     file.Read(source, 0, (int)mapEntry.length);
-                                    for (int i = 0; i < cache.Length; i++)
-                                        cache[i] = 0;
                                     chd_error ret = avHuff.DecodeData(source, mapEntry.length, ref cache);
                                     if (ret != chd_error.CHDERR_NONE)
                                         return ret;
