@@ -352,15 +352,24 @@ internal static class CHDV5
 
                 uint comp = compression[(int)mapentry.comptype];
                 chd_error ret = chd_error.CHDERR_UNSUPPORTED_FORMAT;
-                if (comp == CHD_CODEC_ZLIB) { ret = CHDReaders.zlib(source, cache); }
-                else if (comp == CHD_CODEC_LZMA) { ret = CHDReaders.lzma(source, cache); }
-                else if (comp == CHD_CODEC_HUFFMAN) { ret = CHDReaders.huffman(source, cache); }
-                else if (comp == CHD_CODEC_FLAC) { ret = CHDReaders.flac(source, cache); }
-                else if (comp == CHD_CODEC_CD_ZLIB) { ret = CHDReaders.cdzlib(source, cache); }
-                else if (comp == CHD_CODEC_CD_LZMA) { ret = CHDReaders.cdlzma(source, cache); }
-                else if (comp == CHD_CODEC_CD_FLAC) { ret = CHDReaders.cdflac(source, cache); }
-                else if (comp == CHD_CODEC_AVHUFF) { ret = CHDReaders.avHuff(source, cache); }
-                else { Console.WriteLine("Unknown compression type"); }
+                if (comp == CHD_CODEC_ZLIB)
+                    ret = CHDReaders.zlib(source, cache);
+                else if (comp == CHD_CODEC_LZMA)
+                    ret = CHDReaders.lzma(source, cache);
+                else if (comp == CHD_CODEC_HUFFMAN)
+                    ret = CHDReaders.huffman(source, cache);
+                else if (comp == CHD_CODEC_FLAC)
+                    ret = CHDReaders.flac(source, cache);
+                else if (comp == CHD_CODEC_CD_ZLIB)
+                    ret = CHDReaders.cdzlib(source, cache);
+                else if (comp == CHD_CODEC_CD_LZMA)
+                    ret = CHDReaders.cdlzma(source, cache);
+                else if (comp == CHD_CODEC_CD_FLAC)
+                    ret = CHDReaders.cdflac(source, cache);
+                else if (comp == CHD_CODEC_AVHUFF)
+                    ret = CHDReaders.avHuff(source, cache);
+                else
+                    Console.WriteLine("Unknown compression type");
 
                 if (ret != chd_error.CHDERR_NONE)
                     return ret;
