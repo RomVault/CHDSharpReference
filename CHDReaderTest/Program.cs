@@ -18,10 +18,6 @@ internal class Program
         // this CHD uses AVHUFF with FLAC
         //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - CHDs\MAME CHDs (merged)\cliffhgr\cliffhgr.chd");
 
-
-        args = new string[] { @"\\10.0.4.11\d$\RomVaultCHD\RomRoot\testset\CHDSharp Test Suite" };
-
-
         if (args.Length == 0)
         {
             Console.WriteLine("Expecting a Directory to Scan");
