@@ -81,7 +81,7 @@ namespace CHDReaderTest
                 if ((block % 1000) == 0)
                     Console.Write($"Verifying, {(100 - sizetoGo * 100 / totalbytes):N1}% complete...\r");
 
-                err = readBlock(file, compression, block, map, (int)hunksize, ref buffer);
+                err = readBlock(file, compression, block, map, (int)hunksize, buffer);
                 if (err != chd_error.CHDERR_NONE)
                     return false;
 
@@ -317,7 +317,7 @@ namespace CHDReaderTest
         }
 
 
-        private static chd_error readBlock(Stream file, uint[] compression, int hunkindex, mapentry[] map, int hunksize, ref byte[] cache)
+        private static chd_error readBlock(Stream file, uint[] compression, int hunkindex, mapentry[] map, int hunksize, byte[] cache)
         {
             long blockoffs;
             mapentry mapentry = map[hunkindex];
@@ -352,7 +352,7 @@ namespace CHDReaderTest
                     if (comp == CHD_CODEC_ZLIB)
                     {
                         //Console.WriteLine("ZLIB");
-                        chd_error ret = CHDV5Readers.zlib(file, (int)mapentry.length, hunksize, ref cache);
+                        chd_error ret = CHDV5Readers.zlib(file, (int)mapentry.length, hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
 
@@ -360,43 +360,43 @@ namespace CHDReaderTest
                     else if (comp == CHD_CODEC_LZMA)
                     {
                         //Console.WriteLine("LZMA");
-                        chd_error ret = CHDV5Readers.lzma(file, (int)mapentry.length, hunksize, ref cache);
+                        chd_error ret = CHDV5Readers.lzma(file, (int)mapentry.length, hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
                     else if (comp == CHD_CODEC_HUFFMAN)
                     {
                         //Console.WriteLine("HUFFMAN");
-                        chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, ref cache); 
+                        chd_error ret = CHDV5Readers.huffman(file, (int)mapentry.length, hunksize, cache); 
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
 
                     }
                     else if (comp == CHD_CODEC_FLAC)
                     {
-                        Console.WriteLine("FLAC");
-                        chd_error ret = CHDV5Readers.flac(file,(int)mapentry.length,hunksize,ref cache);
+                        //Console.WriteLine("FLAC");
+                        chd_error ret = CHDV5Readers.flac(file,(int)mapentry.length,hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
                     else if (comp == CHD_CODEC_CD_ZLIB)
                     {
                         //Console.WriteLine("CD_ZLIB");
-                        chd_error ret = CHDV5Readers.cdzlib(file, (int)mapentry.length, hunksize, ref cache);
+                        chd_error ret = CHDV5Readers.cdzlib(file, (int)mapentry.length, hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
                     else if (comp == CHD_CODEC_CD_LZMA)
                     {
                         //Console.WriteLine("CD_LZMA");
-                        chd_error ret = CHDV5Readers.cdlzma(file, (int)mapentry.length, hunksize, ref cache);
+                        chd_error ret = CHDV5Readers.cdlzma(file, (int)mapentry.length, hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
                     else if (comp == CHD_CODEC_CD_FLAC)
                     {
-                        Console.WriteLine("CD_FLAC"); 
-                        chd_error ret = CHDV5Readers.cdflac(file, (int)mapentry.length, hunksize, ref cache);
+                        //Console.WriteLine("CD_FLAC"); 
+                        chd_error ret = CHDV5Readers.cdflac(file, (int)mapentry.length, hunksize, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
@@ -404,7 +404,7 @@ namespace CHDReaderTest
                     {
                         byte[] source = new byte[mapentry.length];
                         file.Read(source, 0, source.Length);
-                        chd_error ret = avHuff.DecodeData(source, mapentry.length, ref cache);
+                        chd_error ret = avHuff.DecodeData(source, mapentry.length, cache);
                         if (ret != chd_error.CHDERR_NONE)
                             return ret;
                     }
@@ -430,7 +430,7 @@ namespace CHDReaderTest
                     break;
                 case compression_type.COMPRESSION_SELF:
                     //Console.WriteLine("Compression_Self");
-                    return readBlock(file, compression, (int)mapentry.offset, map, hunksize, ref cache);
+                    return readBlock(file, compression, (int)mapentry.offset, map, hunksize, cache);
 
                 case compression_type.COMPRESSION_PARENT:
                     Console.WriteLine("Compression_Parent");

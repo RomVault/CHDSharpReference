@@ -32,7 +32,7 @@ internal static class avHuff
 
     */
 
-    internal static chd_error DecodeData(byte[] source, uint complen, ref byte[] dest)
+    internal static chd_error DecodeData(byte[] source, uint complen, byte[] dest)
     {
         // extract info from the header
         if (complen < 8)
