@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace CUETools.Codecs
+namespace CHDReaderTest.Flac.FlacDeps
 {
     public class AudioBuffer
     {
@@ -29,8 +29,8 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.GetLength(0) - inSampleOffset < sampleCount) ||
-                (outSamples.Length - outByteOffset < loopCount * 2))
+            if (inSamples.GetLength(0) - inSampleOffset < sampleCount ||
+                outSamples.Length - outByteOffset < loopCount * 2)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -44,8 +44,8 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.GetLength(0) - inSampleOffset < sampleCount) ||
-                (outSamples.Length - outByteOffset < loopCount * 3))
+            if (inSamples.GetLength(0) - inSampleOffset < sampleCount ||
+                outSamples.Length - outByteOffset < loopCount * 3)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -59,12 +59,12 @@ namespace CUETools.Codecs
 
                     for (int i = 0; i < loopCount; i++)
                     {
-                        uint sample_out = (uint)*(pInSamples++) << wastedBits;
-                        *(pOutSamples++) = (byte)(sample_out & 0xFF);
+                        uint sample_out = (uint)*pInSamples++ << wastedBits;
+                        *pOutSamples++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(pOutSamples++) = (byte)(sample_out & 0xFF);
+                        *pOutSamples++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(pOutSamples++) = (byte)(sample_out & 0xFF);
+                        *pOutSamples++ = (byte)(sample_out & 0xFF);
                     }
                 }
             }
@@ -75,8 +75,8 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.GetLength(0) - inSampleOffset < sampleCount) ||
-                (outSamples.Length - outByteOffset < loopCount * 2))
+            if (inSamples.GetLength(0) - inSampleOffset < sampleCount ||
+                outSamples.Length - outByteOffset < loopCount * 2)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -90,7 +90,7 @@ namespace CUETools.Codecs
 
                     for (int i = 0; i < loopCount; i++)
                     {
-                        *(pOutSamples++) = (short)(32758 * (*(pInSamples++)));
+                        *pOutSamples++ = (short)(32758 * *pInSamples++);
                     }
                 }
             }
@@ -134,8 +134,8 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.Length - inByteOffset < loopCount * 2) ||
-                (outSamples.GetLength(0) - outSampleOffset < sampleCount))
+            if (inSamples.Length - inByteOffset < loopCount * 2 ||
+                outSamples.GetLength(0) - outSampleOffset < sampleCount)
                 throw new IndexOutOfRangeException();
 
             fixed (byte* pInSamplesFixed = &inSamples[inByteOffset])
@@ -145,7 +145,7 @@ namespace CUETools.Codecs
                     short* pInSamples = (short*)pInSamplesFixed;
                     float* pOutSamples = pOutSamplesFixed;
                     for (int i = 0; i < loopCount; i++)
-                        *(pOutSamples++) = *(pInSamples++) / 32768.0f;
+                        *pOutSamples++ = *pInSamples++ / 32768.0f;
                 }
             }
         }
@@ -155,8 +155,8 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.Length - inByteOffset < loopCount * 2) ||
-                (outSamples.GetLength(0) - outSampleOffset < sampleCount))
+            if (inSamples.Length - inByteOffset < loopCount * 2 ||
+                outSamples.GetLength(0) - outSampleOffset < sampleCount)
             {
                 throw new IndexOutOfRangeException();
             }
@@ -170,7 +170,7 @@ namespace CUETools.Codecs
 
                     for (int i = 0; i < loopCount; i++)
                     {
-                        *(pOutSamples++) = (int)*(pInSamples++);
+                        *pOutSamples++ = *pInSamples++;
                     }
                 }
             }
@@ -181,22 +181,22 @@ namespace CUETools.Codecs
         {
             int loopCount = sampleCount * channelCount;
 
-            if ((inSamples.Length - inByteOffset < loopCount * 3) ||
-                (outSamples.GetLength(0) - outSampleOffset < sampleCount))
+            if (inSamples.Length - inByteOffset < loopCount * 3 ||
+                outSamples.GetLength(0) - outSampleOffset < sampleCount)
                 throw new IndexOutOfRangeException();
 
             fixed (byte* pInSamplesFixed = &inSamples[inByteOffset])
             {
                 fixed (int* pOutSamplesFixed = &outSamples[outSampleOffset, 0])
                 {
-                    byte* pInSamples = (byte*)pInSamplesFixed;
+                    byte* pInSamples = pInSamplesFixed;
                     int* pOutSamples = pOutSamplesFixed;
                     for (int i = 0; i < loopCount; i++)
                     {
-                        int sample = (int)*(pInSamples++);
-                        sample += (int)*(pInSamples++) << 8;
-                        sample += (int)*(pInSamples++) << 16;
-                        *(pOutSamples++) = (sample << 8) >> (8 + wastedBits);
+                        int sample = *pInSamples++;
+                        sample += *pInSamples++ << 8;
+                        sample += *pInSamples++ << 16;
+                        *pOutSamples++ = sample << 8 >> 8 + wastedBits;
                     }
                 }
             }
@@ -339,7 +339,7 @@ namespace CUETools.Codecs
             if (maxLength >= 0)
                 length = Math.Min(length, maxLength);
             if (source.Remaining >= 0)
-                length = (int)Math.Min((long)length, source.Remaining);
+                length = (int)Math.Min(length, source.Remaining);
             dataInBytes = false;
             dataInSamples = false;
             dataInFloat = false;
@@ -443,9 +443,9 @@ namespace CUETools.Codecs
             {
                 fixed (byte* bs = Bytes)
                 {
-                    int* res = ((int*)bs) + pos;
+                    int* res = (int*)bs + pos;
                     for (int i = n; i > 0; i--)
-                        *(res++) = (*(src1++) & 0xffff) ^ (*(src2++) << 16);
+                        *res++ = *src1++ & 0xffff ^ *src2++ << 16;
                 }
             }
             else if (PCM.BitsPerSample == 24)
@@ -455,18 +455,18 @@ namespace CUETools.Codecs
                     byte* res = bs + pos * 6;
                     for (int i = n; i > 0; i--)
                     {
-                        uint sample_out = (uint)*(src1++);
-                        *(res++) = (byte)(sample_out & 0xFF);
+                        uint sample_out = (uint)*src1++;
+                        *res++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(res++) = (byte)(sample_out & 0xFF);
+                        *res++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(res++) = (byte)(sample_out & 0xFF);
-                        sample_out = (uint)*(src2++);
-                        *(res++) = (byte)(sample_out & 0xFF);
+                        *res++ = (byte)(sample_out & 0xFF);
+                        sample_out = (uint)*src2++;
+                        *res++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(res++) = (byte)(sample_out & 0xFF);
+                        *res++ = (byte)(sample_out & 0xFF);
                         sample_out >>= 8;
-                        *(res++) = (byte)(sample_out & 0xFF);
+                        *res++ = (byte)(sample_out & 0xFF);
                     }
                 }
             }

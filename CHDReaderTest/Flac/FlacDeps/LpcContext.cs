@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using CUETools.Codecs;
 
-namespace CUETools.Codecs
+namespace CHDReaderTest.Flac.FlacDeps
 {
     unsafe public class LpcSubframeInfo
     {
@@ -92,7 +93,7 @@ namespace CUETools.Codecs
         {
             int section_id = 0;
             var boundaries = new List<int>();
-            var types = new LpcWindowSection.SectionType[_windowcount, lpc.MAX_LPC_SECTIONS * 2];
+            var types = new SectionType[_windowcount, lpc.MAX_LPC_SECTIONS * 2];
             var alias = new int[_windowcount, lpc.MAX_LPC_SECTIONS * 2];
             var alias_set = new int[_windowcount, lpc.MAX_LPC_SECTIONS * 2];
             for (int x = 0; x < sz; x++)
@@ -112,11 +113,11 @@ namespace CUETools.Codecs
                     if (boundaries.Count >= lpc.MAX_LPC_SECTIONS * 2) throw new IndexOutOfRangeException();
                     types[i, boundaries.Count] =
                         boundaries.Count >= lpc.MAX_LPC_SECTIONS * 2 - 2 ?
-                        LpcWindowSection.SectionType.Data : w == 0.0 ?
-                        LpcWindowSection.SectionType.Zero : w != 1.0 ?
-                        LpcWindowSection.SectionType.Data : bps * 2 + BitReader.log2i(sz) >= 61 ?
-                        LpcWindowSection.SectionType.OneLarge :
-                        LpcWindowSection.SectionType.One ;
+                        SectionType.Data : w == 0.0 ?
+                        SectionType.Zero : w != 1.0 ?
+                        SectionType.Data : bps * 2 + BitReader.log2i(sz) >= 61 ?
+                        SectionType.OneLarge :
+                        SectionType.One;
                 }
                 bool isBoundary = false;
                 for (int i = 0; i < _windowcount; i++)
@@ -336,7 +337,7 @@ namespace CUETools.Codecs
         {
             //return (blocksize - order) * (Math.Log(prediction_error[order - 1]) - Math.Log(1.0)) + Math.Log(blocksize) * order * (alpha + beta * order);
             //return blocksize * (Math.Log(prediction_error[order - 1]) - Math.Log(autocorr_values[0]) / 2) + Math.Log(blocksize) * order * (alpha + beta * order);
-            return blocksize * (Math.Log(prediction_error[order - 1])) + Math.Log(blocksize) * order * (alpha + beta * order);
+            return blocksize * Math.Log(prediction_error[order - 1]) + Math.Log(blocksize) * order * (alpha + beta * order);
         }
 
         /// <summary>

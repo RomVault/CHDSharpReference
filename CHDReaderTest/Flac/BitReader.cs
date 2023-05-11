@@ -1,8 +1,9 @@
 using System;
+using CHDReaderTest.Flac.FlacDeps;
 
 namespace CUETools.Codecs
 {
-	unsafe public class BitReader
+    unsafe public class BitReader
     {
         #region Static Methods
 

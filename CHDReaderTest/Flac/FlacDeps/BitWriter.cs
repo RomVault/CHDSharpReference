@@ -1,6 +1,7 @@
 using System;
+using CUETools.Codecs;
 
-namespace CUETools.Codecs
+namespace CHDReaderTest.Flac.FlacDeps
 {
     public class BitWriter
     {
@@ -93,7 +94,7 @@ namespace CUETools.Codecs
             }
             buf_ptr_m = end;
             if ((old_pos + len) % 8 != 0)
-                writebits((old_pos + len) % 8, buf[end1] >> (8 - ((old_pos + len) % 8)));
+                writebits((old_pos + len) % 8, buf[end1] >> 8 - (old_pos + len) % 8);
         }
 
         public void write(params char[] chars)
@@ -116,12 +117,12 @@ namespace CUETools.Codecs
 
         public void writebits_signed(int bits, int val)
         {
-            writebits(bits, val & ((1 << bits) - 1));
+            writebits(bits, val & (1 << bits) - 1);
         }
 
         public void writebits_signed(uint bits, int val)
         {
-            writebits((int)bits, val & ((1 << (int)bits) - 1));
+            writebits((int)bits, val & (1 << (int)bits) - 1);
         }
 
         public void writebits(int bits, int val)
@@ -152,7 +153,7 @@ namespace CUETools.Codecs
             }
             else
             {
-                ulong bb = bit_buf_m | (val >> (bits - bit_left_m));
+                ulong bb = bit_buf_m | val >> bits - bit_left_m;
                 if (buffer != null)
                 {
                     if (buf_ptr_m + 8 > buf_end)
@@ -161,14 +162,14 @@ namespace CUETools.Codecs
                         return;
                     }
 
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 56)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 48)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 40)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 32)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 24)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >> 16)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb >>  8)]);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ (byte)(bb      )]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 56)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 48)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 40)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 32)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 24)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 16)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)(bb >> 8)]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ (byte)bb]);
 
                     buffer[buf_ptr_m + 7] = (byte)(bb & 0xFF); bb >>= 8;
                     buffer[buf_ptr_m + 6] = (byte)(bb & 0xFF); bb >>= 8;
@@ -192,33 +193,33 @@ namespace CUETools.Codecs
         /// </summary>
         /// <param name="bits"></param>
         /// <param name="val"></param>
-//        unsafe void writebits_fast(int bits, uint val, ref byte* buf)
-//        {
-//#if DEBUG
-//            if ((buf_ptr + 3) >= buf_end)
-//            {
-//                eof = true;
-//                return;
-//            }
-//#endif
-//            if (bits < bit_left)
-//            {
-//                bit_buf = (bit_buf << bits) | val;
-//                bit_left -= bits;
-//            }
-//            else
-//            {
-//                uint bb = (bit_buf << bit_left) | (val >> (bits - bit_left));
-//                bit_left += (32 - bits);
+        //        unsafe void writebits_fast(int bits, uint val, ref byte* buf)
+        //        {
+        //#if DEBUG
+        //            if ((buf_ptr + 3) >= buf_end)
+        //            {
+        //                eof = true;
+        //                return;
+        //            }
+        //#endif
+        //            if (bits < bit_left)
+        //            {
+        //                bit_buf = (bit_buf << bits) | val;
+        //                bit_left -= bits;
+        //            }
+        //            else
+        //            {
+        //                uint bb = (bit_buf << bit_left) | (val >> (bits - bit_left));
+        //                bit_left += (32 - bits);
 
-//                *(buf++) = (byte)(bb >> 24);
-//                *(buf++) = (byte)(bb >> 16);
-//                *(buf++) = (byte)(bb >> 8);
-//                *(buf++) = (byte)(bb);
+        //                *(buf++) = (byte)(bb >> 24);
+        //                *(buf++) = (byte)(bb >> 16);
+        //                *(buf++) = (byte)(bb >> 8);
+        //                *(buf++) = (byte)(bb);
 
-//                bit_buf = val;
-//            }
-//        }
+        //                bit_buf = val;
+        //            }
+        //        }
 
         public void write_utf8(int val)
         {
@@ -234,11 +235,11 @@ namespace CUETools.Codecs
             }
             int bytes = (BitReader.log2i(val) + 4) / 5;
             int shift = (bytes - 1) * 6;
-            writebits(8, (256U - (256U >> bytes)) | (val >> shift));
+            writebits(8, 256U - (256U >> bytes) | val >> shift);
             while (shift >= 6)
             {
                 shift -= 6;
-                writebits(8, 0x80 | ((val >> shift) & 0x3F));
+                writebits(8, 0x80 | val >> shift & 0x3F);
             }
         }
 
@@ -246,7 +247,7 @@ namespace CUETools.Codecs
         {
             // convert signed to unsigned
             int v = -2 * val - 1;
-            v ^= (v >> 31);
+            v ^= v >> 31;
 
             // write quotient in unary
             int q = v + 1;
@@ -262,7 +263,7 @@ namespace CUETools.Codecs
         {
             // convert signed to unsigned
             int v = -2 * val - 1;
-            v ^= (v >> 31);
+            v ^= v >> 31;
 
             // write quotient in unary
             int q = (v >> k) + 1;
@@ -274,7 +275,7 @@ namespace CUETools.Codecs
             }
 
             // write remainder in binary using 'k' bits
-            writebits(k + q, (v & ((1 << k) - 1)) | (1 << k));
+            writebits(k + q, v & (1 << k) - 1 | 1 << k);
         }
 
         public unsafe void write_rice_block_signed(byte* fixedbuf, int k, int* residual, int count)
@@ -283,61 +284,61 @@ namespace CUETools.Codecs
             ulong bit_buf = bit_buf_m;
             int bit_left = bit_left_m;
             ushort crc16 = crc16_m;
-            fixed (ushort *crc16_t = Crc16.table)
-            for (int i = count; i > 0; i--)
-            {
-                int vi = *(residual++);
-                uint v = (uint)((vi << 1) ^ (vi >> 31));
-
-                // write quotient in unary
-                int q = (int)(v >> k) + 1;
-                int bits = k + q;
-                while (bits > 64)
+            fixed (ushort* crc16_t = Crc16.table)
+                for (int i = count; i > 0; i--)
                 {
-#if DEBUG
-                    if (buf + 1 > fixedbuf + buf_end)
+                    int vi = *residual++;
+                    uint v = (uint)(vi << 1 ^ vi >> 31);
+
+                    // write quotient in unary
+                    int q = (int)(v >> k) + 1;
+                    int bits = k + q;
+                    while (bits > 64)
                     {
-                        eof = true;
-                        return;
-                    }
-#endif
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bit_buf >> 56))]);
-                    bit_buf <<= 8;
-                    bits -= 8;
-                }
-
-                // write remainder in binary using 'k' bits
-                //writebits_fast(k + q, (uint)((v & ((1 << k) - 1)) | (1 << k)), ref buf);
-                ulong val = (uint)((v & ((1U << k) - 1)) | (1U << k));
-                if (bits < bit_left)
-                {
-                    bit_left -= bits;
-                    bit_buf |= val << bit_left;
-                }
-                else
-                {
-                    ulong bb = bit_buf | (val >> (bits - bit_left));
 #if DEBUG
-                    if (buf + 8 > fixedbuf + buf_end)
-                    {
-                        eof = true;
-                        return;
+                        if (buf + 1 > fixedbuf + buf_end)
+                        {
+                            eof = true;
+                            return;
+                        }
+#endif
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bit_buf >> 56))]);
+                        bit_buf <<= 8;
+                        bits -= 8;
                     }
+
+                    // write remainder in binary using 'k' bits
+                    //writebits_fast(k + q, (uint)((v & ((1 << k) - 1)) | (1 << k)), ref buf);
+                    ulong val = v & (1U << k) - 1 | 1U << k;
+                    if (bits < bit_left)
+                    {
+                        bit_left -= bits;
+                        bit_buf |= val << bit_left;
+                    }
+                    else
+                    {
+                        ulong bb = bit_buf | val >> bits - bit_left;
+#if DEBUG
+                        if (buf + 8 > fixedbuf + buf_end)
+                        {
+                            eof = true;
+                            return;
+                        }
 #endif
 
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 56))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 48))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 40))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 32))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 24))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 16))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb >> 8))]);
-                    crc16 = (ushort)((crc16 << 8) ^ crc16_t[(crc16 >> 8) ^ (*(buf++) = (byte)(bb))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 56))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 48))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 40))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 32))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 24))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 16))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)(bb >> 8))]);
+                        crc16 = (ushort)(crc16 << 8 ^ crc16_t[crc16 >> 8 ^ (*buf++ = (byte)bb)]);
 
-                    bit_left += 64 - bits;
-                    bit_buf = (val << bit_left - 1) << 1;
+                        bit_left += 64 - bits;
+                        bit_buf = val << bit_left - 1 << 1;
+                    }
                 }
-            }
             crc16_m = crc16;
             buf_ptr_m = (int)(buf - fixedbuf);
             bit_buf_m = bit_buf;
@@ -356,7 +357,7 @@ namespace CUETools.Codecs
                 if (buffer != null)
                 {
                     byte b = (byte)(bit_buf_m >> 56);
-                    crc16_m = (ushort)((crc16_m << 8) ^ Crc16.table[(crc16_m >> 8) ^ b]);
+                    crc16_m = (ushort)(crc16_m << 8 ^ Crc16.table[crc16_m >> 8 ^ b]);
                     buffer[buf_ptr_m] = b;
                 }
                 buf_ptr_m++;

@@ -23,10 +23,11 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using CHDReaderTest.Flac.FlacDeps;
 
 namespace CUETools.Codecs.Flake
 {
-	public class AudioDecoder: IAudioSource
+    public class AudioDecoder: IAudioSource
 	{
 		int[] samplesBuffer;
 		int[] residualBuffer;

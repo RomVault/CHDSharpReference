@@ -1,4 +1,5 @@
 ﻿using System;
+using CHDReaderTest.Flac.FlacDeps;
 
 namespace CUETools.Codecs.Flake
 {

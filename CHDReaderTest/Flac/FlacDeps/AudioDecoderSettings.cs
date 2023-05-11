@@ -6,7 +6,7 @@ using System.Text;
 using Newtonsoft.Json;
 using System.IO;
 
-namespace CUETools.Codecs
+namespace CHDReaderTest.Flac.FlacDeps
 {
     public interface IAudioDecoderSettings
     {

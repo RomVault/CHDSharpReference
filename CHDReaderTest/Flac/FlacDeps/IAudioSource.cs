@@ -1,23 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace CUETools.Codecs
+namespace CHDReaderTest.Flac.FlacDeps
 {
-	public interface IAudioSource
-	{
+    public interface IAudioSource
+    {
         IAudioDecoderSettings Settings { get; }
 
-		AudioPCMConfig PCM { get; }
-		string Path { get; }
+        AudioPCMConfig PCM { get; }
+        string Path { get; }
 
         TimeSpan Duration { get; }
         long Length { get; }
-		long Position { get; set; }
-		long Remaining { get; }
+        long Position { get; set; }
+        long Remaining { get; }
 
-		int Read(AudioBuffer buffer, int maxLength);
-		void Close();
-	}
+        int Read(AudioBuffer buffer, int maxLength);
+        void Close();
+    }
 
     public interface IAudioTitle
     {
@@ -47,7 +47,7 @@ namespace CUETools.Codecs
         {
             var sr = title.PCM.SampleRate;
             if (sr % 1000 == 0) return $"{sr / 1000}KHz";
-            if (sr % 100 == 0) return $"{sr / 100}.{(sr / 100) % 10}KHz";
+            if (sr % 100 == 0) return $"{sr / 100}.{sr / 100 % 10}KHz";
             return $"{sr}Hz";
         }
 
