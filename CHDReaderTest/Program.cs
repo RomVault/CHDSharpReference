@@ -8,16 +8,6 @@ internal class Program
 
     static void Main(string[] args)
     {
-        // These files are hitting avHuff without flack
-        // MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd
-        // MAME - Rollback CHDs\MAME (v0.130) - firefox\firefox.chd
-        // MAME - Rollback CHDs\MAME (v0.130) - mach3\mach3.chd
-        // MAME - Rollback CHDs\MAME (v0.130) - usvsthem\usvsthem.chd
-        //CHD.TestCHD(@"\MAME - Rollback CHDs\MAME (v0.130) - cubeqst\cubeqst.chd");
-
-        // this CHD uses AVHUFF with FLAC
-        //CHD.TestCHD(@"\\10.0.4.11\d$\RomVaultCHD\RomRoot\MAME - CHDs\MAME CHDs (merged)\cliffhgr\cliffhgr.chd");
-
         if (args.Length == 0)
         {
             Console.WriteLine("Expecting a Directory to Scan");
