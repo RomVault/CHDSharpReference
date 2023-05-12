@@ -38,8 +38,18 @@ public static class CHD
                     Console.WriteLine($"Unknown version {version}");
                     return;
             }
+            var fc = Console.ForegroundColor;
             if (!valid)
-                Console.WriteLine($@"Valid = {valid}");
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Failed");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("Valid");
+            }
+            Console.ForegroundColor = fc;
         }
     }
 }

@@ -243,7 +243,7 @@ internal static partial class CHDReaders
         byte[] bSector = new byte[frames * CD_MAX_SECTOR_DATA];
         byte[] bSubcode = new byte[frames * CD_MAX_SUBCODE_DATA];
 
-        chd_error err = flac(source, 0, bSector, false, out int pos);
+        chd_error err = flac(source, 0, bSector, true, out int pos);
         if (err != chd_error.CHDERR_NONE)
             return err;
 
