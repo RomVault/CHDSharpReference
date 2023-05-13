@@ -347,8 +347,8 @@ internal static class CHDV5
                 file.Seek((long)mapentry.offset, SeekOrigin.Begin);
                 byte[] source = new byte[mapentry.length];
                 file.Read(source, 0, source.Length);
-                for (int i = 0; i < cache.Length; i++)
-                    cache[i] = 0;
+                //for (int i = 0; i < cache.Length; i++)
+                //    cache[i] = 0;
 
                 uint comp = compression[(int)mapentry.comptype];
                 chd_error ret = chd_error.CHDERR_UNSUPPORTED_FORMAT;
