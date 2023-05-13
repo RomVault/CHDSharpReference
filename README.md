@@ -1,5 +1,5 @@
-# CHDSharp
-CHD C# simple Reader
+# CHDSharpReference
+CHD C# simple Reference Reader 
 
 My goal here is to produce the cleanest and the most readable possible code to document the CHD file format.
 
